@@ -633,9 +633,22 @@ export default function ControleGestion() {
               <h3 className="text-sm font-semibold mb-1" style={{ color: '#e8f4fd' }}>
                 Décomposition coût de revient par OT (MAD)
               </h3>
-              <p className="text-xs mb-4" style={{ color: '#4a7a9b' }}>
-                Cliquer sur une ligne du tableau pour le détail complet
-              </p>
+              {/* Légende manuelle — évite les bugs Recharts v3 avec Legend + stackId */}
+              <div className="flex flex-wrap gap-3 mb-4">
+                {[
+                  { label: 'Carburant',      color: '#ff4444' },
+                  { label: 'Salaire',        color: '#ffb300' },
+                  { label: 'Péages',         color: '#00d4ff' },
+                  { label: 'Amortissement',  color: '#7bacc8' },
+                  { label: 'Assurance',      color: '#00e676' },
+                  { label: 'Divers',         color: '#4a7a9b' },
+                ].map(({ label, color }) => (
+                  <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#7bacc8' }}>
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
+                    {label}
+                  </div>
+                ))}
+              </div>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart
                   data={voyageCosts.map(vc => {
@@ -654,15 +667,18 @@ export default function ControleGestion() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
                   <XAxis dataKey="ref" tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10, color: '#7bacc8' }} />
+                    tickFormatter={(v: number) => `${(v/1000).toFixed(0)}K`} />
+                  <Tooltip
+                    contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: '#7bacc8', marginBottom: 4 }}
+                    formatter={(value: any) => [`${Number(value).toLocaleString()} MAD`]}
+                  />
                   <Bar dataKey="Carburant"     stackId="a" fill="#ff4444" fillOpacity={0.85} />
                   <Bar dataKey="Salaire"       stackId="a" fill="#ffb300" fillOpacity={0.85} />
                   <Bar dataKey="Peages"        stackId="a" fill="#00d4ff" fillOpacity={0.85} />
                   <Bar dataKey="Amortissement" stackId="a" fill="#7bacc8" fillOpacity={0.85} />
                   <Bar dataKey="Assurance"     stackId="a" fill="#00e676" fillOpacity={0.85} />
-                  <Bar dataKey="Divers"        stackId="a" fill="#234878" fillOpacity={0.85} radius={[4,4,0,0]} />
+                  <Bar dataKey="Divers"        stackId="a" fill="#4a7a9b" fillOpacity={0.85} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
