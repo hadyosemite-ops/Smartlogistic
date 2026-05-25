@@ -641,10 +641,10 @@ export default function ControleGestion() {
                   data={voyageCosts.map(vc => {
                     const m = missions.find(x => x.id === vc.missionId);
                     return {
-                      ref:          m?.reference.replace('OT-2025-', '') ?? vc.missionId,
+                      ref:          m?.reference?.replace('OT-2025-', '') ?? vc.missionId,
                       Carburant:    vc.carburant,
                       Salaire:      vc.salaireChauffeur,
-                      Péages:       vc.peages,
+                      Peages:       vc.peages,
                       Amortissement:vc.amortissement,
                       Assurance:    vc.assurance,
                       Divers:       vc.divers,
@@ -659,7 +659,7 @@ export default function ControleGestion() {
                   <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10, color: '#7bacc8' }} />
                   <Bar dataKey="Carburant"     stackId="a" fill="#ff4444" fillOpacity={0.85} />
                   <Bar dataKey="Salaire"       stackId="a" fill="#ffb300" fillOpacity={0.85} />
-                  <Bar dataKey="Péages"        stackId="a" fill="#00d4ff" fillOpacity={0.85} />
+                  <Bar dataKey="Peages"        stackId="a" fill="#00d4ff" fillOpacity={0.85} />
                   <Bar dataKey="Amortissement" stackId="a" fill="#7bacc8" fillOpacity={0.85} />
                   <Bar dataKey="Assurance"     stackId="a" fill="#00e676" fillOpacity={0.85} />
                   <Bar dataKey="Divers"        stackId="a" fill="#234878" fillOpacity={0.85} radius={[4,4,0,0]} />
