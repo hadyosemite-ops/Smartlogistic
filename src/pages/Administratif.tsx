@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  FileText, Shield, Briefcase, Receipt,
+  Shield, Briefcase, Receipt,
   AlertTriangle, CheckCircle, Clock, ChevronRight, X
 } from 'lucide-react';
 import {

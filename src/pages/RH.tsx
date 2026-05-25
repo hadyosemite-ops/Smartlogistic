@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Users, FileText, Calendar, DollarSign,
-  CheckCircle, Clock, X, ChevronRight,
+  X, ChevronRight,
   AlertTriangle, Award, Phone
 } from 'lucide-react';
 import {
