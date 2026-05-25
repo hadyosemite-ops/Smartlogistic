@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
+  Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
@@ -143,19 +143,23 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
           </div>
         </div>
 
-        {/* Pie chart */}
+        {/* Répartition CSS — remplace PieChart pour éviter crash Recharts v3 */}
         <div className="mb-5">
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={costBreakdown} cx="50%" cy="50%" outerRadius={65} dataKey="value" paddingAngle={3}>
-                {costBreakdown.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} fillOpacity={0.85} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MAD`}
-                contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="flex h-4 rounded overflow-hidden mb-2">
+            {costBreakdown.map((s, i) => (
+              <div key={i} title={`${s.label}: ${s.value.toLocaleString()} MAD`}
+                style={{ width: `${s.pct}%`, background: s.color, opacity: 0.85 }} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {costBreakdown.map(s => (
+              <div key={s.label} className="flex items-center gap-1.5 text-xs">
+                <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+                <span style={{ color: '#7bacc8' }}>{s.label}</span>
+                <span className="ml-auto font-semibold" style={{ color: s.color }}>{s.pct}%</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Driver & Vehicle */}
@@ -628,20 +632,20 @@ export default function ControleGestion() {
         {activeTab === 'voyages' && (
           <div className="space-y-4">
 
-            {/* Stacked bar coûts par voyage */}
+            {/* Stacked bar CSS pur — sans Recharts pour éviter les crashs v3 */}
             <div className="glass-card p-5">
-              <h3 className="text-sm font-semibold mb-1" style={{ color: '#e8f4fd' }}>
+              <h3 className="text-sm font-semibold mb-3" style={{ color: '#e8f4fd' }}>
                 Décomposition coût de revient par OT (MAD)
               </h3>
-              {/* Légende manuelle — évite les bugs Recharts v3 avec Legend + stackId */}
-              <div className="flex flex-wrap gap-3 mb-4">
+              {/* Légende */}
+              <div className="flex flex-wrap gap-3 mb-5">
                 {[
-                  { label: 'Carburant',      color: '#ff4444' },
-                  { label: 'Salaire',        color: '#ffb300' },
-                  { label: 'Péages',         color: '#00d4ff' },
-                  { label: 'Amortissement',  color: '#7bacc8' },
-                  { label: 'Assurance',      color: '#00e676' },
-                  { label: 'Divers',         color: '#4a7a9b' },
+                  { label: 'Carburant',     color: '#ff4444' },
+                  { label: 'Salaire',       color: '#ffb300' },
+                  { label: 'Péages',        color: '#00d4ff' },
+                  { label: 'Amortissement', color: '#7bacc8' },
+                  { label: 'Assurance',     color: '#00e676' },
+                  { label: 'Divers',        color: '#4a7a9b' },
                 ].map(({ label, color }) => (
                   <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#7bacc8' }}>
                     <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
@@ -649,38 +653,39 @@ export default function ControleGestion() {
                   </div>
                 ))}
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={voyageCosts.map(vc => {
-                    const m = missions.find(x => x.id === vc.missionId);
-                    return {
-                      ref:          m?.reference?.replace('OT-2025-', '') ?? vc.missionId,
-                      Carburant:    vc.carburant,
-                      Salaire:      vc.salaireChauffeur,
-                      Peages:       vc.peages,
-                      Amortissement:vc.amortissement,
-                      Assurance:    vc.assurance,
-                      Divers:       vc.divers,
-                    };
-                  })}
-                  margin={{ top: 5, right: 10, left: -5, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
-                  <XAxis dataKey="ref" tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v: number) => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip
-                    contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: '#7bacc8', marginBottom: 4 }}
-                    formatter={(value: any) => [`${Number(value).toLocaleString()} MAD`]}
-                  />
-                  <Bar dataKey="Carburant"     stackId="a" fill="#ff4444" fillOpacity={0.85} />
-                  <Bar dataKey="Salaire"       stackId="a" fill="#ffb300" fillOpacity={0.85} />
-                  <Bar dataKey="Peages"        stackId="a" fill="#00d4ff" fillOpacity={0.85} />
-                  <Bar dataKey="Amortissement" stackId="a" fill="#7bacc8" fillOpacity={0.85} />
-                  <Bar dataKey="Assurance"     stackId="a" fill="#00e676" fillOpacity={0.85} />
-                  <Bar dataKey="Divers"        stackId="a" fill="#4a7a9b" fillOpacity={0.85} />
-                </BarChart>
-              </ResponsiveContainer>
+              {/* Barres CSS empilées */}
+              <div className="space-y-3">
+                {voyageCosts.map(vc => {
+                  const m      = missions.find(x => x.id === vc.missionId);
+                  const label  = m?.reference?.replace('OT-2025-', '#') ?? vc.missionId;
+                  const maxVal = Math.max(...voyageCosts.map(v => v.total));
+                  const segs   = [
+                    { v: vc.carburant,        color: '#ff4444' },
+                    { v: vc.salaireChauffeur, color: '#ffb300' },
+                    { v: vc.peages,           color: '#00d4ff' },
+                    { v: vc.amortissement,    color: '#7bacc8' },
+                    { v: vc.assurance,        color: '#00e676' },
+                    { v: vc.divers,           color: '#4a7a9b' },
+                  ];
+                  return (
+                    <div key={vc.missionId} className="flex items-center gap-3">
+                      <span className="text-xs font-mono w-12 flex-shrink-0" style={{ color: '#00d4ff' }}>{label}</span>
+                      <div className="flex-1 flex h-5 rounded overflow-hidden" style={{ background: '#1e3a5f' }}>
+                        {segs.map((s, i) => (
+                          <div key={i} style={{
+                            width: `${(s.v / maxVal) * 100}%`,
+                            background: s.color,
+                            opacity: 0.85,
+                          }} />
+                        ))}
+                      </div>
+                      <span className="text-xs font-semibold w-20 text-right flex-shrink-0" style={{ color: '#e8f4fd' }}>
+                        {vc.total.toLocaleString()} MAD
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Missions table */}
