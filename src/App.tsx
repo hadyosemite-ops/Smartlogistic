@@ -5,7 +5,8 @@ import Exploitation from './pages/Exploitation';
 import Securite from './pages/Securite';
 import Maintenance from './pages/Maintenance';
 import ControleGestion from './pages/ControleGestion';
-import Placeholder from './pages/Placeholder';
+import RH from './pages/RH';
+import Administratif from './pages/Administratif';
 
 export default function App() {
   return (
@@ -20,8 +21,8 @@ export default function App() {
             <Route path="/securite"      element={<Securite />} />
             <Route path="/maintenance"   element={<Maintenance />} />
             <Route path="/controle"      element={<ControleGestion />} />
-            <Route path="/rh"            element={<Placeholder module="rh" />} />
-            <Route path="/administratif" element={<Placeholder module="administratif" />} />
+            <Route path="/rh"            element={<RH />} />
+            <Route path="/administratif" element={<Administratif />} />
           </Routes>
         </main>
       </div>

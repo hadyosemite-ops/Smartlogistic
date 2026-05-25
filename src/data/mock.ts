@@ -334,6 +334,183 @@ export const financialByMonth = [
   { month: 'Mai', ca: 243000, couts: 162000, marge: 81000, carburant: 44600, maintenance: 40650, salaires: 44000 },
 ];
 
+// ─── RH Data ──────────────────────────────────────────────────────────────────
+
+export type TypeContrat = 'CDI' | 'CDD' | 'interim';
+export type StatutConge = 'approuve' | 'en_attente' | 'refuse';
+export type TypeConge   = 'conge_annuel' | 'maladie' | 'sans_solde' | 'formation';
+
+export interface ContratConducteur {
+  chauffeurId: string;
+  type: TypeContrat;
+  dateEmbauche: string;
+  dateFinContrat?: string;
+  salaireBase: number;      // MAD/mois
+  primeKm: number;          // MAD/100km
+  primeRendement: number;   // MAD/mois max
+  mutuelle: boolean;
+  anciennete: number;       // années
+}
+
+export interface Conge {
+  id: string;
+  chauffeurId: string;
+  type: TypeConge;
+  dateDebut: string;
+  dateFin: string;
+  jours: number;
+  statut: StatutConge;
+  motif?: string;
+}
+
+export interface Formation {
+  id: string;
+  chauffeurId: string;
+  intitule: string;
+  organisme: string;
+  date: string;
+  dureeJours: number;
+  certificat: boolean;
+  expiration?: string;
+}
+
+export interface PaieMensuelle {
+  chauffeurId: string;
+  mois: string;
+  salaireBase: number;
+  primeKm: number;
+  primeRendement: number;
+  heuresSupp: number;
+  retenues: number;
+  netAPayer: number;
+}
+
+export const contratsConducteurs: ContratConducteur[] = [
+  { chauffeurId: 'd1', type: 'CDI', dateEmbauche: '2018-03-01', salaireBase: 5800, primeKm: 0.18, primeRendement: 1200, mutuelle: true,  anciennete: 7 },
+  { chauffeurId: 'd2', type: 'CDI', dateEmbauche: '2020-07-15', salaireBase: 5200, primeKm: 0.16, primeRendement: 1000, mutuelle: true,  anciennete: 4 },
+  { chauffeurId: 'd3', type: 'CDI', dateEmbauche: '2015-11-10', salaireBase: 6100, primeKm: 0.18, primeRendement: 1200, mutuelle: true,  anciennete: 9 },
+  { chauffeurId: 'd4', type: 'CDI', dateEmbauche: '2022-02-01', salaireBase: 5000, primeKm: 0.15, primeRendement: 900,  mutuelle: true,  anciennete: 3 },
+  { chauffeurId: 'd5', type: 'CDI', dateEmbauche: '2013-06-20', salaireBase: 6400, primeKm: 0.18, primeRendement: 800,  mutuelle: false, anciennete: 11 },
+  { chauffeurId: 'd6', type: 'CDD', dateEmbauche: '2024-01-01', dateFinContrat: '2025-12-31', salaireBase: 4800, primeKm: 0.14, primeRendement: 800, mutuelle: false, anciennete: 1 },
+  { chauffeurId: 'd7', type: 'CDI', dateEmbauche: '2021-09-01', salaireBase: 5500, primeKm: 0.17, primeRendement: 1100, mutuelle: true,  anciennete: 3 },
+  { chauffeurId: 'd8', type: 'CDI', dateEmbauche: '2019-04-12', salaireBase: 5600, primeKm: 0.17, primeRendement: 1000, mutuelle: true,  anciennete: 6 },
+];
+
+export const conges: Conge[] = [
+  { id: 'c1', chauffeurId: 'd6', type: 'conge_annuel', dateDebut: '2025-05-15', dateFin: '2025-06-14', jours: 30, statut: 'approuve',   motif: 'Congé annuel' },
+  { id: 'c2', chauffeurId: 'd4', type: 'conge_annuel', dateDebut: '2025-05-25', dateFin: '2025-05-31', jours: 7,  statut: 'approuve',   motif: 'Congé semaine' },
+  { id: 'c3', chauffeurId: 'd2', type: 'maladie',      dateDebut: '2025-05-10', dateFin: '2025-05-12', jours: 3,  statut: 'approuve',   motif: 'Arrêt médical' },
+  { id: 'c4', chauffeurId: 'd5', type: 'formation',    dateDebut: '2025-06-02', dateFin: '2025-06-03', jours: 2,  statut: 'en_attente', motif: 'Formation conduite défensive' },
+  { id: 'c5', chauffeurId: 'd8', type: 'conge_annuel', dateDebut: '2025-07-01', dateFin: '2025-07-21', jours: 21, statut: 'en_attente', motif: 'Congé été' },
+  { id: 'c6', chauffeurId: 'd3', type: 'sans_solde',   dateDebut: '2025-04-01', dateFin: '2025-04-05', jours: 5,  statut: 'refuse',     motif: 'Raisons personnelles' },
+  { id: 'c7', chauffeurId: 'd1', type: 'conge_annuel', dateDebut: '2025-08-10', dateFin: '2025-08-30', jours: 21, statut: 'en_attente', motif: 'Congé annuel' },
+];
+
+export const formations: Formation[] = [
+  { id: 'f1', chauffeurId: 'd1', intitule: 'Conduite économique & éco-conduite',    organisme: 'OFPPT Casablanca',   date: '2024-09-15', dureeJours: 2, certificat: true,  expiration: '2027-09-15' },
+  { id: 'f2', chauffeurId: 'd1', intitule: 'Transport matières dangereuses ADR',    organisme: 'Centre ADR Maroc',   date: '2023-03-10', dureeJours: 5, certificat: true,  expiration: '2026-03-10' },
+  { id: 'f3', chauffeurId: 'd2', intitule: 'Conduite défensive',                    organisme: 'Auto-École Pro',     date: '2024-11-20', dureeJours: 1, certificat: false              },
+  { id: 'f4', chauffeurId: 'd3', intitule: 'Premiers secours SST',                  organisme: 'Croix-Rouge Maroc',  date: '2024-06-01', dureeJours: 2, certificat: true,  expiration: '2026-06-01' },
+  { id: 'f5', chauffeurId: 'd5', intitule: 'Conduite défensive',                    organisme: 'Auto-École Pro',     date: '2025-06-02', dureeJours: 2, certificat: false              },
+  { id: 'f6', chauffeurId: 'd7', intitule: 'Transport frigorifique ATP',             organisme: 'OFPPT Marrakech',    date: '2024-02-14', dureeJours: 3, certificat: true,  expiration: '2027-02-14' },
+  { id: 'f7', chauffeurId: 'd4', intitule: 'Réglementation transport routier',      organisme: 'DRETIT Rabat',       date: '2024-10-05', dureeJours: 1, certificat: true,  expiration: '2027-10-05' },
+  { id: 'f8', chauffeurId: 'd8', intitule: 'Gestion du temps de conduite (AETR)',   organisme: 'DRETIT Casablanca',  date: '2025-01-18', dureeJours: 1, certificat: true,  expiration: '2028-01-18' },
+];
+
+export const paieMensuelle: PaieMensuelle[] = [
+  { chauffeurId: 'd1', mois: 'Mai 2025', salaireBase: 5800, primeKm: 1144, primeRendement: 1100, heuresSupp: 420, retenues: 1280, netAPayer: 7184 },
+  { chauffeurId: 'd2', mois: 'Mai 2025', salaireBase: 5200, primeKm: 880,  primeRendement: 900,  heuresSupp: 260, retenues: 1050, netAPayer: 6190 },
+  { chauffeurId: 'd3', mois: 'Mai 2025', salaireBase: 6100, primeKm: 1500, primeRendement: 800,  heuresSupp: 380, retenues: 1320, netAPayer: 7460 },
+  { chauffeurId: 'd4', mois: 'Mai 2025', salaireBase: 5000, primeKm: 540,  primeRendement: 850,  heuresSupp: 0,   retenues: 980,  netAPayer: 5410 },
+  { chauffeurId: 'd5', mois: 'Mai 2025', salaireBase: 6400, primeKm: 1848, primeRendement: 400,  heuresSupp: 620, retenues: 1400, netAPayer: 7868 },
+  { chauffeurId: 'd6', mois: 'Mai 2025', salaireBase: 4800, primeKm: 0,    primeRendement: 0,    heuresSupp: 0,   retenues: 840,  netAPayer: 3960 },
+  { chauffeurId: 'd7', mois: 'Mai 2025', salaireBase: 5500, primeKm: 712,  primeRendement: 1050, heuresSupp: 300, retenues: 1120, netAPayer: 6442 },
+  { chauffeurId: 'd8', mois: 'Mai 2025', salaireBase: 5600, primeKm: 924,  primeRendement: 950,  heuresSupp: 350, retenues: 1150, netAPayer: 6674 },
+];
+
+// ─── Administratif Data ────────────────────────────────────────────────────────
+
+export type TypeDocument = 'carte_grise' | 'assurance' | 'vignette' | 'autorisation' | 'controle_technique';
+export type StatutDocument = 'valide' | 'expire_bientot' | 'expire';
+
+export interface DocumentVehicule {
+  id: string;
+  vehiculeId: string;
+  type: TypeDocument;
+  libelle: string;
+  organisme: string;
+  dateEmission: string;
+  dateExpiration: string;
+  statut: StatutDocument;
+  montant?: number;        // coût du renouvellement MAD
+  reference?: string;
+}
+
+export interface ContratClient {
+  id: string;
+  client: string;
+  type: 'spot' | 'cadre' | 'exclusif';
+  dateDebut: string;
+  dateFin: string;
+  tarifKm: number;         // MAD/km
+  volumeMensuel: number;   // missions/mois contractualisées
+  caAnnuelEstime: number;
+  statut: 'actif' | 'en_negociation' | 'expire';
+  contact: string;
+  conditions?: string;
+}
+
+export interface Facture {
+  id: string;
+  reference: string;
+  client: string;
+  missionIds: string[];
+  dateEmission: string;
+  dateEcheance: string;
+  montantHT: number;
+  tva: number;
+  montantTTC: number;
+  statut: 'payee' | 'en_attente' | 'retard' | 'litige';
+}
+
+export const documentsVehicules: DocumentVehicule[] = [
+  { id: 'dv1',  vehiculeId: 'v1', type: 'assurance',           libelle: 'Assurance RC + tous risques',   organisme: 'Wafa Assurance',     dateEmission: '2025-01-01', dateExpiration: '2026-01-01', statut: 'valide',          montant: 12400, reference: 'WA-2025-001' },
+  { id: 'dv2',  vehiculeId: 'v1', type: 'vignette',            libelle: 'Vignette automobile 2025',      organisme: 'Trésor Public Maroc', dateEmission: '2025-01-01', dateExpiration: '2025-12-31', statut: 'valide',          montant: 2800  },
+  { id: 'dv3',  vehiculeId: 'v2', type: 'assurance',           libelle: 'Assurance RC + tous risques',   organisme: 'AXA Assurance',      dateEmission: '2025-02-01', dateExpiration: '2026-02-01', statut: 'valide',          montant: 11800, reference: 'AXA-2025-054' },
+  { id: 'dv4',  vehiculeId: 'v3', type: 'controle_technique',  libelle: 'Contrôle technique annuel',     organisme: 'Centre CT Safi',      dateEmission: '2025-02-28', dateExpiration: '2025-06-05', statut: 'expire_bientot',  montant: 650   },
+  { id: 'dv5',  vehiculeId: 'v3', type: 'assurance',           libelle: 'Assurance RC',                  organisme: 'RMA Assurance',       dateEmission: '2024-10-01', dateExpiration: '2025-09-30', statut: 'valide',          montant: 9200,  reference: 'RMA-2024-312' },
+  { id: 'dv6',  vehiculeId: 'v4', type: 'assurance',           libelle: 'Assurance RC + tous risques',   organisme: 'Wafa Assurance',     dateEmission: '2025-03-01', dateExpiration: '2026-03-01', statut: 'valide',          montant: 13100, reference: 'WA-2025-088' },
+  { id: 'dv7',  vehiculeId: 'v5', type: 'controle_technique',  libelle: 'Contrôle technique (expiré)',   organisme: 'Centre CT Tanger',    dateEmission: '2024-08-25', dateExpiration: '2025-02-25', statut: 'expire',          montant: 650   },
+  { id: 'dv8',  vehiculeId: 'v5', type: 'assurance',           libelle: 'Assurance RC',                  organisme: 'Atlanta Assurance',  dateEmission: '2025-01-15', dateExpiration: '2026-01-15', statut: 'valide',          montant: 8900,  reference: 'ATL-2025-041' },
+  { id: 'dv9',  vehiculeId: 'v6', type: 'assurance',           libelle: 'Assurance RC + tous risques',   organisme: 'AXA Assurance',      dateEmission: '2025-04-01', dateExpiration: '2026-04-01', statut: 'valide',          montant: 14200, reference: 'AXA-2025-198' },
+  { id: 'dv10', vehiculeId: 'v7', type: 'assurance',           libelle: 'Assurance RC + tous risques',   organisme: 'Wafa Assurance',     dateEmission: '2025-01-01', dateExpiration: '2025-07-01', statut: 'expire_bientot',  montant: 10600, reference: 'WA-2025-022' },
+  { id: 'dv11', vehiculeId: 'v8', type: 'assurance',           libelle: 'Assurance RC',                  organisme: 'RMA Assurance',       dateEmission: '2024-12-01', dateExpiration: '2025-11-30', statut: 'valide',          montant: 7800,  reference: 'RMA-2024-489' },
+  { id: 'dv12', vehiculeId: 'v8', type: 'controle_technique',  libelle: 'Contrôle technique (expiré)',   organisme: 'Centre CT Casablanca',dateEmission: '2024-10-12', dateExpiration: '2025-04-12', statut: 'expire',          montant: 650   },
+  { id: 'dv13', vehiculeId: 'v1', type: 'autorisation',        libelle: 'Autorisation transport marchandises', organisme: 'DRETIT',        dateEmission: '2024-01-01', dateExpiration: '2026-12-31', statut: 'valide',          montant: 1200  },
+  { id: 'dv14', vehiculeId: 'v2', type: 'carte_grise',         libelle: 'Carte grise (titre de propriété)',   organisme: 'Préfecture Casa', dateEmission: '2020-07-01', dateExpiration: '2030-07-01', statut: 'valide'                          },
+];
+
+export const contratsClients: ContratClient[] = [
+  { id: 'cc1', client: 'Marjane Distribution', type: 'cadre',    dateDebut: '2024-01-01', dateFin: '2025-12-31', tarifKm: 14.2, volumeMensuel: 18, caAnnuelEstime: 860000,  statut: 'actif',          contact: 'M. Bennani — 0661 112 233', conditions: 'Facturation hebdomadaire, délai 30 jours' },
+  { id: 'cc2', client: 'OCP Logistics',        type: 'exclusif', dateDebut: '2023-07-01', dateFin: '2026-06-30', tarifKm: 16.8, volumeMensuel: 24, caAnnuelEstime: 1140000, statut: 'actif',          contact: 'Mme Alaoui — 0662 334 455', conditions: 'Facturation mensuelle, délai 45 jours' },
+  { id: 'cc3', client: 'Coca-Cola Maroc',      type: 'cadre',    dateDebut: '2024-06-01', dateFin: '2026-05-31', tarifKm: 13.5, volumeMensuel: 16, caAnnuelEstime: 816000,  statut: 'actif',          contact: 'M. Ouali — 0663 556 677',   conditions: 'Livraisons programmées 48h à l\'avance' },
+  { id: 'cc4', client: 'Ciment du Maroc',      type: 'cadre',    dateDebut: '2023-01-01', dateFin: '2025-06-30', tarifKm: 12.1, volumeMensuel: 31, caAnnuelEstime: 1416000, statut: 'en_negociation', contact: 'M. Tahiri — 0664 778 899',   conditions: 'Renouvellement en cours — tarif à renégocier' },
+  { id: 'cc5', client: 'Label\'Vie',           type: 'spot',     dateDebut: '2025-01-01', dateFin: '2025-12-31', tarifKm: 15.8, volumeMensuel: 14, caAnnuelEstime: 648000,  statut: 'actif',          contact: 'Mme Chraibi — 0665 990 011' },
+  { id: 'cc6', client: 'SONACOS',              type: 'cadre',    dateDebut: '2024-09-01', dateFin: '2026-08-31', tarifKm: 11.8, volumeMensuel: 20, caAnnuelEstime: 984000,  statut: 'actif',          contact: 'M. Brahim — 0666 122 233' },
+  { id: 'cc7', client: 'INWI',                 type: 'spot',     dateDebut: '2025-03-01', dateFin: '2025-08-31', tarifKm: 17.2, volumeMensuel: 8,  caAnnuelEstime: 492000,  statut: 'actif',          contact: 'M. Saidi — 0667 344 455' },
+];
+
+export const factures: Facture[] = [
+  { id: 'fac1', reference: 'F-2025-0142', client: 'Marjane Distribution', missionIds: ['m1','m7'], dateEmission: '2025-05-25', dateEcheance: '2025-06-24', montantHT: 7200,  tva: 1440, montantTTC: 8640,  statut: 'en_attente' },
+  { id: 'fac2', reference: 'F-2025-0141', client: 'OCP Logistics',        missionIds: ['m6'],      dateEmission: '2025-05-26', dateEcheance: '2025-07-10', montantHT: 3200,  tva: 640,  montantTTC: 3840,  statut: 'en_attente' },
+  { id: 'fac3', reference: 'F-2025-0140', client: 'Label\'Vie',           missionIds: ['m3'],      dateEmission: '2025-05-25', dateEcheance: '2025-06-24', montantHT: 3600,  tva: 720,  montantTTC: 4320,  statut: 'payee' },
+  { id: 'fac4', reference: 'F-2025-0139', client: 'INWI',                 missionIds: ['m8'],      dateEmission: '2025-05-25', dateEcheance: '2025-06-10', montantHT: 6800,  tva: 1360, montantTTC: 8160,  statut: 'en_attente' },
+  { id: 'fac5', reference: 'F-2025-0138', client: 'Ciment du Maroc',      missionIds: ['m4'],      dateEmission: '2025-05-20', dateEcheance: '2025-06-19', montantHT: 5900,  tva: 1180, montantTTC: 7080,  statut: 'retard' },
+  { id: 'fac6', reference: 'F-2025-0135', client: 'SONACOS',              missionIds: ['m2'],      dateEmission: '2025-05-12', dateEcheance: '2025-06-11', montantHT: 8200,  tva: 1640, montantTTC: 9840,  statut: 'en_attente' },
+  { id: 'fac7', reference: 'F-2025-0130', client: 'Coca-Cola Maroc',      missionIds: ['m5'],      dateEmission: '2025-05-08', dateEcheance: '2025-06-07', montantHT: 7100,  tva: 1420, montantTTC: 8520,  statut: 'payee' },
+  { id: 'fac8', reference: 'F-2025-0121', client: 'Marjane Distribution', missionIds: [],          dateEmission: '2025-04-30', dateEcheance: '2025-05-30', montantHT: 18400, tva: 3680, montantTTC: 22080, statut: 'retard' },
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export const getDriver = (id: string) => drivers.find(d => d.id === id);
