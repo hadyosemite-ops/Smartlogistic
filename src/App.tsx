@@ -3,6 +3,8 @@ import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Exploitation from './pages/Exploitation';
 import Securite from './pages/Securite';
+import Maintenance from './pages/Maintenance';
+import ControleGestion from './pages/ControleGestion';
 import Placeholder from './pages/Placeholder';
 
 export default function App() {
@@ -16,8 +18,8 @@ export default function App() {
             <Route path="/"              element={<Dashboard />} />
             <Route path="/exploitation"  element={<Exploitation />} />
             <Route path="/securite"      element={<Securite />} />
-            <Route path="/maintenance"   element={<Placeholder module="maintenance" />} />
-            <Route path="/controle"      element={<Placeholder module="controle" />} />
+            <Route path="/maintenance"   element={<Maintenance />} />
+            <Route path="/controle"      element={<ControleGestion />} />
             <Route path="/rh"            element={<Placeholder module="rh" />} />
             <Route path="/administratif" element={<Placeholder module="administratif" />} />
           </Routes>
