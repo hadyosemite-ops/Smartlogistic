@@ -2,7 +2,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Truck, ShieldCheck, Wrench,
   BarChart3, Users, FileText, Bell, Settings, ChevronRight,
-  ClipboardCheck,
 } from 'lucide-react';
 import { alerts } from '../../data/mock';
 
@@ -16,7 +15,6 @@ const nav = [
   { to: '/controle',    icon: BarChart3,       label: 'Contrôle Gestion',sub: 'Coûts & Rentabilité' },
   { to: '/rh',          icon: Users,           label: 'Ressources Hum.', sub: 'Personnel & Planning' },
   { to: '/administratif',icon: FileText,       label: 'Administratif',   sub: 'Documents & Conformité' },
-  { to: '/checklist',    icon: ClipboardCheck, label: 'Checklist',        sub: 'Contrôle véhicules HSE' },
 ];
 
 export default function Sidebar() {
