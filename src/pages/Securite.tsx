@@ -8,7 +8,7 @@ import {
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, BarChart, Bar,
+  CartesianGrid, Tooltip,
 } from 'recharts';
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';

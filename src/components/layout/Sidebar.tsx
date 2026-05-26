@@ -20,7 +20,7 @@ const nav = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
-  const { c } = useTheme();
+  useTheme(); // keep ThemeProvider in tree; sidebar stays dark by design
 
   // Sidebar keeps the dark brand look in both modes (professional consistency)
   const sidebarBg = 'linear-gradient(180deg, #050e1f 0%, #020817 100%)';
