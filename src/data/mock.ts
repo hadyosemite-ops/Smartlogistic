@@ -773,3 +773,39 @@ export const conformiteTrend = [
   { mois: 'Avr', taux: 95, inspections: 11 },
   { mois: 'Mai', taux: 96, inspections: 6  },
 ];
+
+// ─── QSE — Tableau de bord Sécurité & Environnement (For-QSE-01.01) ──────────
+
+export interface QSEMensuel {
+  mois: string;
+  // Accidents
+  accidentSite: number;
+  accidentTrajet: number;
+  accidentClient: number;
+  // Incidents environnementaux
+  incidentEnvSite: number;
+  incidentEnvTrajet: number;
+  incidentEnvClient: number;
+  // Impact & signalements
+  joursArret: number;
+  reclamationsClients: number;
+  remonteesChauffeuts: number;
+  // Taux (%)
+  tauxTraitementRemontees: number;
+  tauxTraitementPAS: number;
+}
+
+export const qseData: QSEMensuel[] = [
+  { mois: 'Jan', accidentSite: 0, accidentTrajet: 1, accidentClient: 0, incidentEnvSite: 1, incidentEnvTrajet: 2, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 2, remonteesChauffeuts: 5,  tauxTraitementRemontees: 80,  tauxTraitementPAS: 75  },
+  { mois: 'Fév', accidentSite: 0, accidentTrajet: 0, accidentClient: 1, incidentEnvSite: 0, incidentEnvTrajet: 1, incidentEnvClient: 1, joursArret: 0, reclamationsClients: 1, remonteesChauffeuts: 4,  tauxTraitementRemontees: 85,  tauxTraitementPAS: 80  },
+  { mois: 'Mar', accidentSite: 1, accidentTrajet: 1, accidentClient: 0, incidentEnvSite: 1, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 3, reclamationsClients: 3, remonteesChauffeuts: 7,  tauxTraitementRemontees: 86,  tauxTraitementPAS: 82  },
+  { mois: 'Avr', accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 1, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 1, remonteesChauffeuts: 6,  tauxTraitementRemontees: 90,  tauxTraitementPAS: 88  },
+  { mois: 'Mai', accidentSite: 0, accidentTrajet: 1, accidentClient: 0, incidentEnvSite: 1, incidentEnvTrajet: 0, incidentEnvClient: 1, joursArret: 0, reclamationsClients: 2, remonteesChauffeuts: 8,  tauxTraitementRemontees: 92,  tauxTraitementPAS: 90  },
+  { mois: 'Juin', accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 5,  tauxTraitementRemontees: 95,  tauxTraitementPAS: 92  },
+  { mois: 'Juil', accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+  { mois: 'Août', accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+  { mois: 'Sep',  accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+  { mois: 'Oct',  accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+  { mois: 'Nov',  accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+  { mois: 'Déc',  accidentSite: 0, accidentTrajet: 0, accidentClient: 0, incidentEnvSite: 0, incidentEnvTrajet: 0, incidentEnvClient: 0, joursArret: 0, reclamationsClients: 0, remonteesChauffeuts: 0,  tauxTraitementRemontees: 0,   tauxTraitementPAS: 0   },
+];

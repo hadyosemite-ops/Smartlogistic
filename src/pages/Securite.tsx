@@ -3,12 +3,12 @@ import {
   ShieldCheck, TrendingDown, TrendingUp, Bell, Eye, X, Activity,
   ClipboardCheck, Plus, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle,
-  BarChart3, Calendar, Filter, ShieldAlert,
+  BarChart3, Calendar, Filter, ShieldAlert, Leaf,
 } from 'lucide-react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip,
+  CartesianGrid, Tooltip, BarChart, Bar, Legend,
 } from 'recharts';
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   drivers, alerts, vehicles,
   checklistItems, inspections, actionsCorrectices, conformiteTrend,
+  qseData,
   type Driver, type CheckStatut, type ActionStatut, type ActionPriorite,
   type Inspection, type ActionCorrectrice,
 } from '../data/mock';
@@ -544,7 +545,7 @@ function ActionRow({ action }: { action: ActionCorrectrice }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type Tab = 'scoring' | 'checklist';
+type Tab = 'scoring' | 'checklist' | 'qse';
 
 export default function Securite() {
   const { c } = useTheme();
@@ -608,8 +609,9 @@ export default function Securite() {
       {/* Tabs */}
       <div className="flex gap-1 px-6 pt-4 pb-0">
         {([
-          { key: 'scoring',   label: 'Scoring & Alertes',        icon: ShieldCheck },
+          { key: 'scoring',   label: 'Scoring & Alertes',           icon: ShieldCheck },
           { key: 'checklist', label: 'Check-list & Plan d\'actions', icon: ClipboardCheck },
+          { key: 'qse',       label: 'Tableau de bord QSE',          icon: Leaf },
         ] as { key: Tab; label: string; icon: React.FC<{ size?: number; style?: React.CSSProperties }> }[]).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-t-lg text-sm font-medium transition-all"
@@ -944,10 +946,317 @@ export default function Securite() {
             </div>
           </div>
         </>)}
+
+        {/* ── Tab QSE ──────────────────────────────────────────────────── */}
+        {tab === 'qse' && <QSETab tooltipStyle={tooltipStyle} />}
+
       </div>
 
       {selectedDriver && <DriverPanel driver={selectedDriver} onClose={() => setSelectedDriver(null)} />}
       {showForm && <InspectionForm onClose={() => setShowForm(false)} onSubmit={handleInspSubmit} />}
+    </div>
+  );
+}
+
+// ─── QSE Tab ──────────────────────────────────────────────────────────────────
+
+function QSETab({ tooltipStyle }: { tooltipStyle: React.CSSProperties }) {
+  const { c } = useTheme();
+
+  const activeMonths = qseData.filter(m => m.remonteesChauffeuts > 0 || m.accidentTrajet > 0 || m.accidentSite > 0 || m.accidentClient > 0);
+
+  const totals = qseData.reduce((acc, m) => ({
+    accidents:     acc.accidents     + m.accidentSite + m.accidentTrajet + m.accidentClient,
+    incidentsEnv:  acc.incidentsEnv  + m.incidentEnvSite + m.incidentEnvTrajet + m.incidentEnvClient,
+    joursArret:    acc.joursArret    + m.joursArret,
+    reclamations:  acc.reclamations  + m.reclamationsClients,
+    remontees:     acc.remontees     + m.remonteesChauffeuts,
+  }), { accidents: 0, incidentsEnv: 0, joursArret: 0, reclamations: 0, remontees: 0 });
+
+  const lastActive = activeMonths[activeMonths.length - 1];
+  const avgPAS  = activeMonths.length > 0 ? Math.round(activeMonths.reduce((s, m) => s + m.tauxTraitementPAS, 0)  / activeMonths.length) : 0;
+  const avgRem  = activeMonths.length > 0 ? Math.round(activeMonths.reduce((s, m) => s + m.tauxTraitementRemontees, 0) / activeMonths.length) : 0;
+
+  const accidentChartData = qseData.map(m => ({
+    mois: m.mois,
+    Site:    m.accidentSite,
+    Trajet:  m.accidentTrajet,
+    Client:  m.accidentClient,
+  }));
+
+  const envChartData = qseData.map(m => ({
+    mois: m.mois,
+    Site:    m.incidentEnvSite,
+    Trajet:  m.incidentEnvTrajet,
+    Client:  m.incidentEnvClient,
+  }));
+
+  const tauxChartData = activeMonths.map(m => ({
+    mois: m.mois,
+    Remontées: m.tauxTraitementRemontees,
+    'Plan d\'actions': m.tauxTraitementPAS,
+  }));
+
+  const signalChartData = qseData.map(m => ({
+    mois: m.mois,
+    'Jours arrêt':    m.joursArret,
+    'Réclamations':   m.reclamationsClients,
+    'Remontées':      m.remonteesChauffeuts,
+  }));
+
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="h-px flex-1" style={{ background: c.border }} />
+      <span className="text-xs font-semibold uppercase tracking-widest px-3" style={{ color: c.textMuted }}>{children}</span>
+      <div className="h-px flex-1" style={{ background: c.border }} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+
+      {/* Header badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 px-4 py-2 rounded-lg"
+          style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}` }}>
+          <Leaf size={14} style={{ color: c.accent }} />
+          <span className="text-xs font-semibold" style={{ color: c.accent }}>For-QSE-01.01 — Tableau de bord Sécurité & Environnement 2026</span>
+        </div>
+        <span className="text-xs" style={{ color: c.textFaint }}>Version 01 · Émis le 15/05/2026</span>
+      </div>
+
+      {/* KPI Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <KPICard label="Accidents totaux" value={totals.accidents}
+          icon={AlertTriangle} iconColor="#ff4444" iconBg={c.dangerBg}
+          glowClass={totals.accidents > 0 ? 'glow-danger' : ''} trendLabel="Site + Trajet + Client" />
+        <KPICard label="Incidents env." value={totals.incidentsEnv}
+          icon={Leaf} iconColor="#00e676" iconBg={c.successBg}
+          trendLabel="Tous sites confondus" />
+        <KPICard label="Jours d'arrêt" value={totals.joursArret}
+          icon={Calendar} iconColor="#ffb300" iconBg={c.warningBg}
+          glowClass={totals.joursArret > 0 ? 'glow-danger' : ''} trendLabel="Suite aux accidents" />
+        <KPICard label="Taux traitement PAS" value={avgPAS} unit="%"
+          icon={ShieldCheck} iconColor="#00e676" iconBg={c.successBg}
+          trendLabel="Plan d'actions (moy.)" />
+        <KPICard label="Remontées traitées" value={avgRem} unit="%"
+          icon={Activity} iconColor="#00d4ff" iconBg={c.accentBg}
+          trendLabel="Taux moyen annuel" />
+      </div>
+
+      {/* Groupe 1 — Accidents */}
+      <div className="glass-card p-5">
+        <SectionTitle>Accidents — 3 zones de suivi</SectionTitle>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={accidentChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} barSize={8}>
+                <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} vertical={false} />
+                <XAxis dataKey="mois" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
+                <Bar dataKey="Site"   fill="#ff4444" radius={[3,3,0,0]} name="Sur site" />
+                <Bar dataKey="Trajet" fill="#ffb300" radius={[3,3,0,0]} name="Trajet" />
+                <Bar dataKey="Client" fill="#ff8844" radius={[3,3,0,0]} name="Sites clients" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-3">
+            {[
+              { label: 'Accidents sur site POWER HYDRLUB', val: totals.accidents > 0 ? qseData.reduce((s,m)=>s+m.accidentSite,0) : 0, color: '#ff4444' },
+              { label: 'Accidents de trajet', val: qseData.reduce((s,m)=>s+m.accidentTrajet,0), color: '#ffb300' },
+              { label: 'Accidents sites clients', val: qseData.reduce((s,m)=>s+m.accidentClient,0), color: '#ff8844' },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="px-3 py-2.5 rounded-lg"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs" style={{ color: c.textSecondary }}>{label}</span>
+                  <span className="text-lg font-black" style={{ color }}>{val}</span>
+                </div>
+                <div className="h-1 rounded-full" style={{ background: c.border }}>
+                  <div className="h-full rounded-full" style={{ width: val === 0 ? '100%' : '20%', background: val === 0 ? '#00e676' : color }} />
+                </div>
+                <div className="text-xs mt-1" style={{ color: val === 0 ? '#00e676' : color }}>{val === 0 ? '✓ Aucun accident' : `${val} cas`}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Groupe 2 — Incidents environnementaux */}
+      <div className="glass-card p-5">
+        <SectionTitle>Incidents environnementaux — 3 zones de suivi</SectionTitle>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={envChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} barSize={8}>
+                <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} vertical={false} />
+                <XAxis dataKey="mois" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
+                <Bar dataKey="Site"   fill="#00e676" radius={[3,3,0,0]} name="Sur site" />
+                <Bar dataKey="Trajet" fill="#00d4ff" radius={[3,3,0,0]} name="Trajet" />
+                <Bar dataKey="Client" fill="#0088aa" radius={[3,3,0,0]} name="Sites clients" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-3">
+            {[
+              { label: 'Incidents env. sur site', val: qseData.reduce((s,m)=>s+m.incidentEnvSite,0), color: '#00e676' },
+              { label: 'Incidents env. en trajet', val: qseData.reduce((s,m)=>s+m.incidentEnvTrajet,0), color: '#00d4ff' },
+              { label: 'Incidents env. sites clients', val: qseData.reduce((s,m)=>s+m.incidentEnvClient,0), color: '#0088aa' },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="px-3 py-2.5 rounded-lg"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs" style={{ color: c.textSecondary }}>{label}</span>
+                  <span className="text-lg font-black" style={{ color }}>{val}</span>
+                </div>
+                <div className="text-xs mt-1" style={{ color: val === 0 ? '#00e676' : color }}>{val === 0 ? '✓ Aucun incident' : `${val} cas`}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Groupe 3 — Impact & signalements */}
+        <div className="glass-card p-5">
+          <SectionTitle>Impact & signalements</SectionTitle>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={signalChartData.filter(m => m['Remontées'] > 0 || m['Jours arrêt'] > 0 || m['Réclamations'] > 0)} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barSize={6}>
+              <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} vertical={false} />
+              <XAxis dataKey="mois" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
+              <Bar dataKey="Jours arrêt"  fill="#ff4444" radius={[3,3,0,0]} />
+              <Bar dataKey="Réclamations" fill="#ffb300" radius={[3,3,0,0]} />
+              <Bar dataKey="Remontées"    fill="#00d4ff" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            {[
+              { label: 'Jours arrêt', val: totals.joursArret, color: '#ff4444' },
+              { label: 'Réclamations', val: totals.reclamations, color: '#ffb300' },
+              { label: 'Remontées', val: totals.remontees, color: '#00d4ff' },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="text-center px-2 py-2 rounded-lg"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                <div className="text-xl font-black" style={{ color }}>{val}</div>
+                <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Groupe 4 — Taux de traitement */}
+        <div className="glass-card p-5">
+          <SectionTitle>Taux de traitement (%)</SectionTitle>
+          {tauxChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={tauxChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
+                <XAxis dataKey="mois" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[60, 100]} tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }} formatter={(v) => [`${v}%`, undefined]} />
+                <Legend wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
+                <Line type="monotone" dataKey="Remontées"       stroke="#00d4ff" strokeWidth={2.5} dot={{ fill: '#00d4ff', r: 3 }} />
+                <Line type="monotone" dataKey="Plan d'actions"  stroke="#00e676" strokeWidth={2.5} dot={{ fill: '#00e676', r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-44 flex items-center justify-center text-sm" style={{ color: c.textFaint }}>Pas encore de données</div>
+          )}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {[
+              { label: 'Taux traitement remontées', val: avgRem, color: '#00d4ff', target: 90 },
+              { label: 'Taux traitement PAS',        val: avgPAS, color: '#00e676', target: 90 },
+            ].map(({ label, val, color, target }) => (
+              <div key={label} className="px-3 py-2.5 rounded-lg"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                <div className="text-xs mb-1" style={{ color: c.textSecondary }}>{label}</div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xl font-black" style={{ color }}>{val}%</span>
+                  <span className="text-xs" style={{ color: c.textFaint }}>Cible {target}%</span>
+                </div>
+                <div className="h-1.5 rounded-full" style={{ background: c.border }}>
+                  <div className="h-full rounded-full transition-all"
+                    style={{ width: `${val}%`, background: val >= target ? '#00e676' : val >= 80 ? '#ffb300' : '#ff4444' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tableau récap mensuel */}
+      <div className="glass-card overflow-hidden">
+        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
+          <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Récapitulatif mensuel — 2026</span>
+          <span className="text-xs px-2 py-0.5 rounded-full"
+            style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+            Réf. For-QSE-01.01
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ background: c.bgElevated, borderBottom: `1px solid ${c.border}` }}>
+                <th className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider" style={{ color: c.textFaint }}>Indicateur</th>
+                {qseData.map(m => (
+                  <th key={m.mois} className="px-3 py-2.5 text-center font-semibold uppercase tracking-wider" style={{ color: c.textFaint }}>{m.mois}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { key: 'accidentSite',              label: 'Accidents site',       warn: true },
+                { key: 'accidentTrajet',             label: 'Accidents trajet',     warn: true },
+                { key: 'accidentClient',             label: 'Accidents clients',    warn: true },
+                { key: 'incidentEnvSite',            label: 'Inc. env. site',       warn: true },
+                { key: 'incidentEnvTrajet',          label: 'Inc. env. trajet',     warn: true },
+                { key: 'incidentEnvClient',          label: 'Inc. env. clients',    warn: true },
+                { key: 'joursArret',                 label: 'Jours arrêt',          warn: true },
+                { key: 'reclamationsClients',        label: 'Réclamations clients', warn: true },
+                { key: 'remonteesChauffeuts',        label: 'Remontées chauffeurs', warn: false },
+                { key: 'tauxTraitementRemontees',    label: 'Taux trait. remontées (%)', warn: false },
+                { key: 'tauxTraitementPAS',          label: 'Taux PAS (%)',         warn: false },
+              ].map(({ key, label, warn }, rowIdx) => (
+                <tr key={key} style={{ borderBottom: `1px solid ${c.borderFaint}`, background: rowIdx % 2 === 0 ? 'transparent' : `${c.bgElevated}55` }}>
+                  <td className="px-4 py-2" style={{ color: c.textSecondary, whiteSpace: 'nowrap' }}>{label}</td>
+                  {qseData.map(m => {
+                    const val = m[key as keyof typeof m] as number;
+                    const isRate = key.startsWith('taux');
+                    const isBad = warn && val > 0;
+                    const isEmpty = val === 0 && m.mois !== 'Jan' && m.mois !== 'Fév' && m.mois !== 'Mar' && m.mois !== 'Avr' && m.mois !== 'Mai' && m.mois !== 'Juin';
+                    return (
+                      <td key={m.mois} className="px-3 py-2 text-center font-medium"
+                        style={{ color: isEmpty ? c.textFaint : isBad ? '#ff4444' : isRate && val > 0 ? (val >= 90 ? '#00e676' : val >= 80 ? '#ffb300' : '#ff4444') : c.textPrimary }}>
+                        {isEmpty ? '—' : isRate ? `${val}%` : val}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Dernière mise à jour */}
+      {lastActive && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-xs"
+          style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textMuted }}>
+          <Activity size={13} style={{ color: c.accent }} />
+          Dernière saisie : <span style={{ color: c.textPrimary, fontWeight: 500 }}>{lastActive.mois} 2026</span>
+          · Total accidents : <span style={{ color: totals.accidents > 0 ? '#ff4444' : '#00e676', fontWeight: 600 }}>{totals.accidents}</span>
+          · Total incidents env. : <span style={{ color: totals.incidentsEnv > 0 ? '#ffb300' : '#00e676', fontWeight: 600 }}>{totals.incidentsEnv}</span>
+          · Taux PAS moyen : <span style={{ color: avgPAS >= 90 ? '#00e676' : '#ffb300', fontWeight: 600 }}>{avgPAS}%</span>
+        </div>
+      )}
     </div>
   );
 }
