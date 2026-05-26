@@ -549,7 +549,7 @@ type Tab = 'scoring' | 'checklist' | 'qse';
 
 export default function Securite() {
   const { c } = useTheme();
-  const [tab, setTab] = useState<Tab>('scoring');
+  const [tab, setTab] = useState<Tab>('qse');
 
   // Scoring state
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -604,14 +604,14 @@ export default function Securite() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Module Sécurité" subtitle="Scoring conducteurs, alertes, check-list et plan d'actions" />
+      <Header title="Module Sécurité" subtitle="Tableau de bord HSE, check-list, scoring conducteurs" />
 
       {/* Tabs */}
       <div className="flex gap-1 px-6 pt-4 pb-0">
         {([
-          { key: 'scoring',   label: 'Scoring & Alertes',           icon: ShieldCheck },
+          { key: 'qse',       label: 'Tableau de bord HSE',          icon: Leaf },
           { key: 'checklist', label: 'Check-list & Plan d\'actions', icon: ClipboardCheck },
-          { key: 'qse',       label: 'Tableau de bord QSE',          icon: Leaf },
+          { key: 'scoring',   label: 'Scoring & Alertes',            icon: ShieldCheck },
         ] as { key: Tab; label: string; icon: React.FC<{ size?: number; style?: React.CSSProperties }> }[]).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-t-lg text-sm font-medium transition-all"
@@ -1020,7 +1020,7 @@ function QSETab({ tooltipStyle }: { tooltipStyle: React.CSSProperties }) {
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg"
           style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}` }}>
           <Leaf size={14} style={{ color: c.accent }} />
-          <span className="text-xs font-semibold" style={{ color: c.accent }}>For-QSE-01.01 — Tableau de bord Sécurité & Environnement 2026</span>
+          <span className="text-xs font-semibold" style={{ color: c.accent }}>For-QSE-01.01 — Tableau de bord HSE · Sécurité & Environnement 2026</span>
         </div>
         <span className="text-xs" style={{ color: c.textFaint }}>Version 01 · Émis le 15/05/2026</span>
       </div>
