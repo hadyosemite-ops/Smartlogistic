@@ -7,6 +7,7 @@ import Maintenance from './pages/Maintenance';
 import ControleGestion from './pages/ControleGestion';
 import RH from './pages/RH';
 import Administratif from './pages/Administratif';
+import Checklist from './pages/Checklist';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="/controle"      element={<ControleGestion />} />
             <Route path="/rh"            element={<RH />} />
             <Route path="/administratif" element={<Administratif />} />
+            <Route path="/checklist"     element={<Checklist />} />
           </Routes>
         </main>
       </div>

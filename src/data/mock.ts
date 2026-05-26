@@ -537,3 +537,239 @@ export const alertLevelColor: Record<AlertLevel, string> = {
   warning:  'text-[#ffb300] bg-[#ffb30015] border-[#ffb30040]',
   info:     'text-[#7bacc8] bg-[#7bacc815] border-[#7bacc840]',
 };
+
+// ─── Checklist Data ────────────────────────────────────────────────────────────
+
+export type CheckStatut = 'conforme' | 'non_conforme' | 'na';
+export type ActionPriorite = 'critique' | 'haute' | 'normale';
+export type ActionStatut = 'ouverte' | 'en_cours' | 'cloturee';
+
+export interface ChecklistItem {
+  id: string;
+  categorie: string;
+  categorieNum: number;
+  point: string;
+  critique: boolean; // non-conformité bloquante
+}
+
+export interface Inspection {
+  id: string;
+  vehiculeId: string;
+  chauffeurId: string;
+  date: string;
+  inspecteur: string;
+  resultats: Record<string, CheckStatut>;
+  commentaires: Record<string, string>;
+  statut: 'conforme' | 'non_conforme';
+  tauxConformite: number;
+}
+
+export interface ActionCorrectrice {
+  id: string;
+  inspectionId: string;
+  vehiculeId: string;
+  chauffeurId: string;
+  point: string;
+  categorie: string;
+  priorite: ActionPriorite;
+  responsable: string;
+  dateEcheance: string;
+  statut: ActionStatut;
+  commentaire?: string;
+}
+
+// ── 63 points de contrôle Power Hydrlub ──────────────────────────────────────
+
+export const checklistItems: ChecklistItem[] = [
+  // 1. Documents réglementaires
+  { id: 'cl01', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Carte grise valide',                              critique: true  },
+  { id: 'cl02', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Assurance véhicule valide',                       critique: true  },
+  { id: 'cl03', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Contrôle technique valide',                       critique: true  },
+  { id: 'cl04', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Vignette valide',                                 critique: false },
+  { id: 'cl05', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Carte verte / autorisation transport',            critique: true  },
+  { id: 'cl06', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Permis conducteur valide',                        critique: true  },
+  { id: 'cl07', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Visite médicale valide',                          critique: true  },
+  { id: 'cl08', categorieNum: 1, categorie: 'Documents réglementaires', point: 'Carte professionnelle disponible',                critique: false },
+  // 2. Conducteur & sécurité
+  { id: 'cl09', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Port de la ceinture obligatoire',                 critique: true  },
+  { id: 'cl10', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Téléphone interdit (même kit mains-libres)',      critique: true  },
+  { id: 'cl11', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Aucun passager non autorisé',                     critique: true  },
+  { id: 'cl12', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Respect des temps de conduite et de repos',       critique: true  },
+  { id: 'cl13', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Aucune conduite sous alcool / stupéfiants',       critique: true  },
+  { id: 'cl14', categorieNum: 2, categorie: 'Conducteur & sécurité',    point: 'Connaissance des règles HSE site client',         critique: false },
+  // 3. EPI obligatoires
+  { id: 'cl15', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Chaussures de sécurité',                          critique: true  },
+  { id: 'cl16', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Casque EN397',                                    critique: true  },
+  { id: 'cl17', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Gilet haute visibilité',                          critique: true  },
+  { id: 'cl18', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Lunettes de protection EN166',                    critique: false },
+  { id: 'cl19', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Gants de protection',                             critique: false },
+  { id: 'cl20', categorieNum: 3, categorie: 'EPI obligatoires',         point: 'Masque respiratoire (si nécessaire)',             critique: false },
+  // 4. Tracteur
+  { id: 'cl21', categorieNum: 4, categorie: 'Tracteur',                 point: 'Ralentisseur hydraulique fonctionnel',            critique: true  },
+  { id: 'cl22', categorieNum: 4, categorie: 'Tracteur',                 point: 'Boîte automatique opérationnelle',                critique: false },
+  { id: 'cl23', categorieNum: 4, categorie: 'Tracteur',                 point: 'Éclairage complet (phares, feux AR, clignotants, réfléchissants)', critique: true },
+  { id: 'cl24', categorieNum: 4, categorie: 'Tracteur',                 point: 'Klaxon de recul fonctionnel',                     critique: false },
+  { id: 'cl25', categorieNum: 4, categorie: 'Tracteur',                 point: 'Pare-brise sans fissure',                         critique: true  },
+  { id: 'cl26', categorieNum: 4, categorie: 'Tracteur',                 point: 'Rétroviseurs conformes',                          critique: true  },
+  { id: 'cl27', categorieNum: 4, categorie: 'Tracteur',                 point: 'Extincteur 2 kg valide',                          critique: true  },
+  { id: 'cl28', categorieNum: 4, categorie: 'Tracteur',                 point: 'Trousse de secours disponible',                   critique: false },
+  { id: 'cl29', categorieNum: 4, categorie: 'Tracteur',                 point: 'Âge < 10 ans, norme EURO VI, puissance ≥ 400 ch', critique: false },
+  { id: 'cl30', categorieNum: 4, categorie: 'Tracteur',                 point: 'Boîtier IVMS (GPS) fonctionnel + clé conducteur', critique: true  },
+  { id: 'cl31', categorieNum: 4, categorie: 'Tracteur',                 point: 'Freinage ABS, ESP, ASR, ESC et ralentisseur opérationnels', critique: true },
+  { id: 'cl32', categorieNum: 4, categorie: 'Tracteur',                 point: 'Régulateur de vitesse adaptatif fonctionnel',     critique: false },
+  // 5. Benne / Remorque
+  { id: 'cl33', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Structure sans fissure',                          critique: true  },
+  { id: 'cl34', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Système de bâchage fonctionnel (bâchage obligatoire)', critique: true },
+  { id: 'cl35', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Bandes réfléchissantes présentes',                critique: false },
+  { id: 'cl36', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Protections anti-encastrement (latérale & arrière)', critique: true },
+  { id: 'cl37', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Cales de roues disponibles',                      critique: false },
+  { id: 'cl38', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Dispositif d\'attache et verrouillage tracteur-attelage sécurisé', critique: true },
+  { id: 'cl39', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Âge < 15 ans, alliages légers, structure intègre', critique: false },
+  { id: 'cl40', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Ouverture automatique porte arrière opérationnelle', critique: false },
+  { id: 'cl41', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Vérins et dispositif de levage contrôlés',        critique: true  },
+  { id: 'cl42', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Garde-boue et bavettes présents',                 critique: false },
+  { id: 'cl43', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Étanchéité : réservoirs sans fuites, bouchons installés', critique: true },
+  { id: 'cl44', categorieNum: 5, categorie: 'Benne / Remorque',         point: 'Autocollants angles morts & avertissement présents', critique: false },
+  // 6. Pneumatiques
+  { id: 'cl45', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Pression conforme aux préconisations',            critique: true  },
+  { id: 'cl46', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Aucune coupure critique (> 25 mm)',               critique: true  },
+  { id: 'cl47', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Aucune hernie visible',                           critique: true  },
+  { id: 'cl48', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Sculpture conforme (> seuil légal)',              critique: true  },
+  { id: 'cl49', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Aucun pneu rechapé',                              critique: false },
+  { id: 'cl50', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Indicateurs de desserrage d\'écrous présents',    critique: false },
+  // Sécurité Cabine
+  { id: 'cl51', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Ceintures 3 points + pochette réfléchissante (port obligatoire)', critique: true },
+  { id: 'cl52', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Pare-brise feuilleté sans fissure ni obstruction', critique: true  },
+  { id: 'cl53', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Rétroviseurs en bon état (grand angle, antéviseur, portière)', critique: true },
+  { id: 'cl54', categorieNum: 6, categorie: 'Pneumatiques',             point: 'Patins de pédales antidérapants, appuie-têtes ajustables', critique: false },
+  // 7. Environnement & urgence
+  { id: 'cl55', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Kit antipollution disponible',                    critique: true  },
+  { id: 'cl56', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Absence de fuite hydraulique / carburant',        critique: true  },
+  { id: 'cl57', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Plan d\'urgence disponible dans la cabine',       critique: false },
+  { id: 'cl58', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Numéros d\'urgence affichés',                     critique: false },
+  { id: 'cl59', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Cônes et triangles de pré-signalisation (×2)',    critique: true  },
+  { id: 'cl60', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Trousse premiers secours + lampe torche + HV',   critique: false },
+  { id: 'cl61', categorieNum: 7, categorie: 'Environnement & urgence',  point: 'Trousse à outils de bord complète',              critique: false },
+];
+
+// ── Historique d'inspections (mock) ──────────────────────────────────────────
+
+const allConformes = (ids: string[]): Record<string, CheckStatut> =>
+  Object.fromEntries(checklistItems.map(i => [i.id, ids.includes(i.id) ? 'non_conforme' : 'conforme']));
+
+export const inspections: Inspection[] = [
+  {
+    id: 'insp01', vehiculeId: 'v1', chauffeurId: 'd1',
+    date: '2025-05-20 06:30', inspecteur: 'Chef de Parc',
+    resultats: allConformes([]),
+    commentaires: {},
+    statut: 'conforme', tauxConformite: 100,
+  },
+  {
+    id: 'insp02', vehiculeId: 'v3', chauffeurId: 'd3',
+    date: '2025-05-18 05:45', inspecteur: 'Chef de Parc',
+    resultats: allConformes(['cl03','cl47','cl20','cl58']),
+    commentaires: { cl03: 'CT expiré — renouvellement en cours', cl47: 'Hernie pneu AR gauche détectée' },
+    statut: 'non_conforme', tauxConformite: 94,
+  },
+  {
+    id: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    date: '2025-05-15 04:00', inspecteur: 'Responsable HSE',
+    resultats: allConformes(['cl03','cl07','cl46','cl30','cl55','cl19','cl58']),
+    commentaires: { cl03: 'CT expiré depuis 3 mois', cl07: 'Visite médicale expirée', cl46: 'Coupure 30mm pneu AV droit', cl30: 'GPS hors service' },
+    statut: 'non_conforme', tauxConformite: 89,
+  },
+  {
+    id: 'insp04', vehiculeId: 'v2', chauffeurId: 'd2',
+    date: '2025-05-10 07:00', inspecteur: 'Chef de Parc',
+    resultats: allConformes(['cl24','cl44']),
+    commentaires: { cl24: 'Klaxon recul faible' },
+    statut: 'non_conforme', tauxConformite: 97,
+  },
+  {
+    id: 'insp05', vehiculeId: 'v6', chauffeurId: 'd7',
+    date: '2025-05-08 06:15', inspecteur: 'Chef de Parc',
+    resultats: allConformes([]),
+    commentaires: {},
+    statut: 'conforme', tauxConformite: 100,
+  },
+  {
+    id: 'insp06', vehiculeId: 'v4', chauffeurId: 'd4',
+    date: '2025-04-28 05:30', inspecteur: 'Responsable HSE',
+    resultats: allConformes(['cl20','cl44','cl37']),
+    commentaires: {},
+    statut: 'non_conforme', tauxConformite: 95,
+  },
+];
+
+// ── Plan d'actions correctives (mock) ────────────────────────────────────────
+
+export const actionsCorrectices: ActionCorrectrice[] = [
+  {
+    id: 'ac01', inspectionId: 'insp02', vehiculeId: 'v3', chauffeurId: 'd3',
+    point: 'Contrôle technique valide', categorie: 'Documents réglementaires',
+    priorite: 'critique', responsable: 'Responsable Administratif',
+    dateEcheance: '2025-05-30', statut: 'en_cours',
+    commentaire: 'Rendez-vous pris au Centre CT Safi le 30/05',
+  },
+  {
+    id: 'ac02', inspectionId: 'insp02', vehiculeId: 'v3', chauffeurId: 'd3',
+    point: 'Aucune hernie visible', categorie: 'Pneumatiques',
+    priorite: 'critique', responsable: 'Chef de Parc',
+    dateEcheance: '2025-05-22', statut: 'cloturee',
+    commentaire: 'Pneu AR gauche remplacé le 22/05',
+  },
+  {
+    id: 'ac03', inspectionId: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    point: 'Contrôle technique valide', categorie: 'Documents réglementaires',
+    priorite: 'critique', responsable: 'Responsable Administratif',
+    dateEcheance: '2025-05-20', statut: 'en_cours',
+    commentaire: 'CT expiré depuis 3 mois — véhicule à immobiliser',
+  },
+  {
+    id: 'ac04', inspectionId: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    point: 'Visite médicale valide', categorie: 'Documents réglementaires',
+    priorite: 'critique', responsable: 'RH',
+    dateEcheance: '2025-05-18', statut: 'en_cours',
+    commentaire: 'Rendez-vous médecin du travail programmé',
+  },
+  {
+    id: 'ac05', inspectionId: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    point: 'Aucune coupure critique (> 25 mm)', categorie: 'Pneumatiques',
+    priorite: 'critique', responsable: 'Chef de Parc',
+    dateEcheance: '2025-05-16', statut: 'cloturee',
+    commentaire: 'Pneu AV droit remplacé',
+  },
+  {
+    id: 'ac06', inspectionId: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    point: 'Boîtier IVMS (GPS) fonctionnel + clé conducteur', categorie: 'Tracteur',
+    priorite: 'haute', responsable: 'Responsable Informatique',
+    dateEcheance: '2025-05-25', statut: 'ouverte',
+    commentaire: 'Boîtier envoyé en réparation',
+  },
+  {
+    id: 'ac07', inspectionId: 'insp03', vehiculeId: 'v5', chauffeurId: 'd5',
+    point: 'Kit antipollution disponible', categorie: 'Environnement & urgence',
+    priorite: 'haute', responsable: 'Chef de Parc',
+    dateEcheance: '2025-05-20', statut: 'cloturee',
+    commentaire: 'Kit reconstitué',
+  },
+  {
+    id: 'ac08', inspectionId: 'insp04', vehiculeId: 'v2', chauffeurId: 'd2',
+    point: 'Klaxon de recul fonctionnel', categorie: 'Tracteur',
+    priorite: 'normale', responsable: 'Chef de Parc',
+    dateEcheance: '2025-05-15', statut: 'cloturee',
+    commentaire: 'Buzzer de recul remplacé',
+  },
+];
+
+// ── Tendances conformité par mois ─────────────────────────────────────────────
+
+export const conformiteTrend = [
+  { mois: 'Déc', taux: 88, inspections: 6  },
+  { mois: 'Jan', taux: 91, inspections: 8  },
+  { mois: 'Fév', taux: 89, inspections: 7  },
+  { mois: 'Mar', taux: 93, inspections: 9  },
+  { mois: 'Avr', taux: 95, inspections: 11 },
+  { mois: 'Mai', taux: 96, inspections: 6  },
+];
