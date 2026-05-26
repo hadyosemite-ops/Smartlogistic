@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
+import { useTheme } from '../context/ThemeContext';
 import {
   voyageCosts, clientRevenue, routePerf, financialByMonth,
   missions, getDriver, getVehicle
@@ -25,22 +26,6 @@ const fmt = (n: number) =>
 
 const PIE_COLORS = ['#00d4ff', '#ff4444', '#ffb300', '#00e676', '#7bacc8'];
 
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg p-3" style={{ background: '#0f2040', border: '1px solid #1e3a5f', fontSize: 12 }}>
-      <p className="font-semibold mb-2" style={{ color: '#7bacc8' }}>{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} className="mb-0.5" style={{ color: p.color || p.stroke }}>
-          {p.name}: <strong>{typeof p.value === 'number' ? `${p.value.toLocaleString()} MAD` : p.value}</strong>
-        </p>
-      ))}
-    </div>
-  );
-};
-
 // ─── VoyageDetail panel ───────────────────────────────────────────────────────
 
 interface VoyageDetailProps {
@@ -49,6 +34,7 @@ interface VoyageDetailProps {
 }
 
 function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
+  const { c } = useTheme();
   const mission = missions.find(m => m.id === missionId);
   const cost    = voyageCosts.find(v => v.missionId === missionId);
   if (!mission || !cost) return null;
@@ -70,36 +56,36 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end"
-      style={{ background: 'rgba(2,8,23,0.78)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}>
-      <div className="glass-card w-full max-w-lg h-full overflow-y-auto p-6"
-        style={{ border: '1px solid #234878', borderRadius: '16px 0 0 16px' }}
+      <div className="w-full max-w-lg h-full overflow-y-auto p-6"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}`, borderRadius: '16px 0 0 16px' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <p className="text-xs font-mono mb-1" style={{ color: '#4a7a9b' }}>{mission.reference}</p>
-            <h3 className="font-bold text-base" style={{ color: '#e8f4fd' }}>{mission.client}</h3>
-            <p className="text-sm" style={{ color: '#7bacc8' }}>{mission.origine} → {mission.destination}</p>
-            <p className="text-xs mt-1" style={{ color: '#4a7a9b' }}>
+            <p className="text-xs font-mono mb-1" style={{ color: c.textMuted }}>{mission.reference}</p>
+            <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>{mission.client}</h3>
+            <p className="text-sm" style={{ color: c.textSecondary }}>{mission.origine} → {mission.destination}</p>
+            <p className="text-xs mt-1" style={{ color: c.textMuted }}>
               {mission.distance} km · {mission.poids > 0 ? `${mission.poids}t` : 'Retour vide'} · {mission.chargement}
             </p>
           </div>
-          <button onClick={onClose} className="text-lg leading-none" style={{ color: '#4a7a9b' }}>✕</button>
+          <button onClick={onClose} className="text-lg leading-none" style={{ color: c.textMuted }}>✕</button>
         </div>
 
         {/* P&L */}
         <div className="grid grid-cols-3 gap-2 mb-5">
           {[
-            { label: 'Chiffre d\'affaires', value: `${mission.prixHT.toLocaleString()} MAD`, color: '#00d4ff' },
+            { label: 'Chiffre d\'affaires', value: `${mission.prixHT.toLocaleString()} MAD`, color: c.accent },
             { label: 'Coût de revient',     value: `${cost.total.toLocaleString()} MAD`,     color: '#ff4444' },
             { label: 'Marge nette',         value: `${marge.toLocaleString()} MAD`,           color: margeColor },
           ].map(({ label, value, color }) => (
             <div key={label} className="px-3 py-2.5 rounded-xl text-center"
               style={{ background: `${color}08`, border: `1px solid ${color}22` }}>
               <div className="text-sm font-bold" style={{ color }}>{value}</div>
-              <div className="text-xs mt-0.5" style={{ color: '#4a7a9b' }}>{label}</div>
+              <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{label}</div>
             </div>
           ))}
         </div>
@@ -108,13 +94,13 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
         <div className="px-4 py-3 rounded-xl mb-5"
           style={{ background: `${margeColor}0a`, border: `1px solid ${margeColor}25` }}>
           <div className="flex justify-between text-xs mb-2">
-            <span style={{ color: '#7bacc8' }}>Taux de marge</span>
+            <span style={{ color: c.textSecondary }}>Taux de marge</span>
             <span className="font-black text-lg" style={{ color: margeColor }}>{margePct}%</span>
           </div>
-          <div className="h-2.5 rounded-full" style={{ background: '#1e3a5f' }}>
+          <div className="h-2.5 rounded-full" style={{ background: c.border }}>
             <div className="h-full rounded-full" style={{ width: `${margePct}%`, background: `linear-gradient(90deg, ${margeColor}80, ${margeColor})` }} />
           </div>
-          <p className="text-xs mt-1.5" style={{ color: '#4a7a9b' }}>
+          <p className="text-xs mt-1.5" style={{ color: c.textMuted }}>
             {mission.distance > 0 ? `${(cost.total / mission.distance).toFixed(2)} MAD/km` : '—'}
             {' · '}
             {mission.poids > 0 ? `${(mission.prixHT / mission.poids).toFixed(0)} MAD/tonne` : '—'}
@@ -123,19 +109,19 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
 
         {/* Cost breakdown bars */}
         <div className="mb-5">
-          <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#4a7a9b' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: c.textMuted }}>
             Décomposition coût de revient
           </h4>
           <div className="space-y-2.5">
             {costBreakdown.map(({ label, value, pct, color }) => (
               <div key={label}>
                 <div className="flex justify-between text-xs mb-1">
-                  <span style={{ color: '#7bacc8' }}>{label}</span>
+                  <span style={{ color: c.textSecondary }}>{label}</span>
                   <span className="font-semibold" style={{ color }}>
-                    {value.toLocaleString()} MAD <span style={{ color: '#4a7a9b' }}>({pct}%)</span>
+                    {value.toLocaleString()} MAD <span style={{ color: c.textMuted }}>({pct}%)</span>
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full" style={{ background: '#1e3a5f' }}>
+                <div className="h-1.5 rounded-full" style={{ background: c.border }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                 </div>
               </div>
@@ -143,7 +129,7 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
           </div>
         </div>
 
-        {/* Répartition CSS — remplace PieChart pour éviter crash Recharts v3 */}
+        {/* Répartition CSS */}
         <div className="mb-5">
           <div className="flex h-4 rounded overflow-hidden mb-2">
             {costBreakdown.map((s, i) => (
@@ -155,7 +141,7 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
             {costBreakdown.map(s => (
               <div key={s.label} className="flex items-center gap-1.5 text-xs">
                 <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-                <span style={{ color: '#7bacc8' }}>{s.label}</span>
+                <span style={{ color: c.textSecondary }}>{s.label}</span>
                 <span className="ml-auto font-semibold" style={{ color: s.color }}>{s.pct}%</span>
               </div>
             ))}
@@ -164,19 +150,19 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
 
         {/* Driver & Vehicle */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="px-3 py-2.5 rounded-lg" style={{ background: 'rgba(10,22,40,0.5)', border: '1px solid #1e3a5f' }}>
-            <div className="text-xs mb-1" style={{ color: '#4a7a9b' }}>Conducteur</div>
-            <div className="font-semibold" style={{ color: '#e8f4fd' }}>
+          <div className="px-3 py-2.5 rounded-lg" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+            <div className="text-xs mb-1" style={{ color: c.textMuted }}>Conducteur</div>
+            <div className="font-semibold" style={{ color: c.textPrimary }}>
               {driver ? `${driver.prenom} ${driver.nom}` : '—'}
             </div>
-            {driver && <div style={{ color: '#4a7a9b' }}>{driver.matricule}</div>}
+            {driver && <div style={{ color: c.textMuted }}>{driver.matricule}</div>}
           </div>
-          <div className="px-3 py-2.5 rounded-lg" style={{ background: 'rgba(10,22,40,0.5)', border: '1px solid #1e3a5f' }}>
-            <div className="text-xs mb-1" style={{ color: '#4a7a9b' }}>Véhicule</div>
-            <div className="font-semibold font-mono" style={{ color: '#00d4ff' }}>
+          <div className="px-3 py-2.5 rounded-lg" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+            <div className="text-xs mb-1" style={{ color: c.textMuted }}>Véhicule</div>
+            <div className="font-semibold font-mono" style={{ color: c.accent }}>
               {vehicle?.immatriculation ?? '—'}
             </div>
-            {vehicle && <div style={{ color: '#4a7a9b' }}>{vehicle.marque} {vehicle.modele}</div>}
+            {vehicle && <div style={{ color: c.textMuted }}>{vehicle.marque} {vehicle.modele}</div>}
           </div>
         </div>
       </div>
@@ -189,10 +175,11 @@ function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
 type Tab = 'synthese' | 'clients' | 'routes' | 'voyages';
 
 export default function ControleGestion() {
+  const { c } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('synthese');
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
 
-  // ── KPIs (mois en cours = last entry) ──────────────────────────────────────
+  // ── KPIs ──────────────────────────────────────────────────────────────────
   const lastMonth    = financialByMonth[financialByMonth.length - 1];
   const prevMonth    = financialByMonth[financialByMonth.length - 2];
   const trendCA      = Math.round(((lastMonth.ca - prevMonth.ca) / prevMonth.ca) * 100);
@@ -203,12 +190,12 @@ export default function ControleGestion() {
   }, 0) / voyageCosts.length).toFixed(2);
   const margeMoyenne = Math.round(
     missions.reduce((s, m) => {
-      const c = voyageCosts.find(v => v.missionId === m.id);
-      return c ? s + ((m.prixHT - c.total) / m.prixHT) * 100 : s;
+      const costV = voyageCosts.find(v => v.missionId === m.id);
+      return costV ? s + ((m.prixHT - costV.total) / m.prixHT) * 100 : s;
     }, 0) / missions.filter(m => voyageCosts.some(v => v.missionId === m.id)).length
   );
 
-  // ── Budget vs réel (mai) ──────────────────────────────────────────────────
+  // ── Budget vs réel ──────────────────────────────────────────────────────
   const budgetData = [
     { cat: 'Carburant',    budget: 42000, reel: lastMonth.carburant,   },
     { cat: 'Maintenance',  budget: 12000, reel: lastMonth.maintenance, },
@@ -216,6 +203,8 @@ export default function ControleGestion() {
     { cat: 'Péages',       budget: 9000,  reel: 8940,                  },
     { cat: 'Assurance',    budget: 7500,  reel: 7200,                  },
   ];
+
+  const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -233,8 +222,8 @@ export default function ControleGestion() {
             value={fmt(lastMonth.ca)}
             unit="MAD"
             icon={DollarSign}
-            iconColor="#00d4ff"
-            iconBg="rgba(0,212,255,0.1)"
+            iconColor={c.accent}
+            iconBg={c.accentBg}
             trend={trendCA}
             trendLabel="vs avril"
             glowClass="glow-accent"
@@ -245,7 +234,7 @@ export default function ControleGestion() {
             unit="MAD"
             icon={TrendingUp}
             iconColor="#00e676"
-            iconBg="rgba(0,230,118,0.1)"
+            iconBg={c.successBg}
             trend={trendMarge}
             trendLabel={`${Math.round((lastMonth.marge / lastMonth.ca) * 100)}% du CA`}
             glowClass="glow-success"
@@ -256,23 +245,23 @@ export default function ControleGestion() {
             unit="MAD"
             icon={BarChart2}
             iconColor="#ffb300"
-            iconBg="rgba(255,179,0,0.1)"
+            iconBg={c.warningBg}
             trendLabel="tous véhicules · mai"
           />
           <KPICard
             label="Marge moy. voyage"
             value={margeMoyenne}
             unit="%"
-            icon={TrendingDown}
+            icon={margeMoyenne >= 35 ? TrendingUp : TrendingDown}
             iconColor={margeMoyenne >= 35 ? '#00e676' : '#ffb300'}
-            iconBg={margeMoyenne >= 35 ? 'rgba(0,230,118,0.1)' : 'rgba(255,179,0,0.1)'}
+            iconBg={margeMoyenne >= 35 ? c.successBg : c.warningBg}
             trendLabel="par mission (8 OT)"
           />
         </div>
 
         {/* ── Tabs ── */}
         <div className="flex gap-1 p-1 rounded-xl w-fit"
-          style={{ background: 'rgba(10,22,40,0.6)', border: '1px solid #1e3a5f' }}>
+          style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
           {([
             { key: 'synthese', label: '📈 Synthèse financière' },
             { key: 'clients',  label: '🏢 Rentabilité clients' },
@@ -282,27 +271,25 @@ export default function ControleGestion() {
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: activeTab === t.key ? 'rgba(0,212,255,0.12)' : 'transparent',
-                color: activeTab === t.key ? '#00d4ff' : '#4a7a9b',
-                border: `1px solid ${activeTab === t.key ? 'rgba(0,212,255,0.3)' : 'transparent'}`,
+                background: activeTab === t.key ? c.accentBg : 'transparent',
+                color: activeTab === t.key ? c.accent : c.textMuted,
+                border: `1px solid ${activeTab === t.key ? c.accentBorder : 'transparent'}`,
               }}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TAB 1 — SYNTHÈSE FINANCIÈRE
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══ TAB 1 — SYNTHÈSE FINANCIÈRE ══ */}
         {activeTab === 'synthese' && (
           <div className="space-y-4">
 
-            {/* Area chart CA / Coûts / Marge */}
+            {/* Area chart */}
             <div className="glass-card p-5">
-              <h3 className="text-sm font-semibold mb-1" style={{ color: '#e8f4fd' }}>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: c.textPrimary }}>
                 Évolution CA · Coûts · Marge (7 derniers mois)
               </h3>
-              <p className="text-xs mb-4" style={{ color: '#4a7a9b' }}>Données en MAD</p>
+              <p className="text-xs mb-4" style={{ color: c.textMuted }}>Données en MAD</p>
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={financialByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
@@ -319,12 +306,13 @@ export default function ControleGestion() {
                       <stop offset="95%" stopColor="#00e676" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
-                  <XAxis dataKey="month" tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false}
+                  <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
+                  <XAxis dataKey="month" tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false}
                     tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: '#7bacc8' }} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }}
+                    formatter={(v: any) => [`${Number(v).toLocaleString()} MAD`, undefined]} />
+                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
                   <Area type="monotone" dataKey="ca"    name="CA"    stroke="#00d4ff" fill="url(#gCA)"    strokeWidth={2} dot={false} />
                   <Area type="monotone" dataKey="couts" name="Coûts" stroke="#ff4444" fill="url(#gCout)"  strokeWidth={2} dot={false} />
                   <Area type="monotone" dataKey="marge" name="Marge" stroke="#00e676" fill="url(#gMarge)" strokeWidth={2} dot={false} />
@@ -337,7 +325,7 @@ export default function ControleGestion() {
 
               {/* Budget vs Réel */}
               <div className="glass-card p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                   Budget vs Réel — Mai 2025
                 </h3>
                 <div className="space-y-3">
@@ -349,9 +337,9 @@ export default function ControleGestion() {
                     return (
                       <div key={cat}>
                         <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span style={{ color: '#7bacc8' }}>{cat}</span>
+                          <span style={{ color: c.textSecondary }}>{cat}</span>
                           <div className="flex items-center gap-2">
-                            <span style={{ color: '#4a7a9b' }}>
+                            <span style={{ color: c.textMuted }}>
                               Budget: {budget.toLocaleString()} MAD
                             </span>
                             <span className="flex items-center gap-0.5 font-semibold" style={{ color: clr }}>
@@ -360,11 +348,9 @@ export default function ControleGestion() {
                             </span>
                           </div>
                         </div>
-                        <div className="relative h-3 rounded-full overflow-hidden" style={{ background: '#1e3a5f' }}>
-                          {/* budget marker */}
+                        <div className="relative h-3 rounded-full overflow-hidden" style={{ background: c.border }}>
                           <div className="absolute top-0 h-full rounded-full"
-                            style={{ width: '100%', background: 'rgba(0,212,255,0.12)', border: '1px solid rgba(0,212,255,0.25)' }} />
-                          {/* réel bar */}
+                            style={{ width: '100%', background: c.accentBg, border: `1px solid ${c.accentBorder}` }} />
                           <div className="absolute top-0 h-full rounded-full transition-all"
                             style={{
                               width: `${Math.min((reel / Math.max(budget, reel)) * 100, 100)}%`,
@@ -385,7 +371,7 @@ export default function ControleGestion() {
 
               {/* Décomposition coûts mai */}
               <div className="glass-card p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                   Structure des coûts — Mai 2025
                 </h3>
                 <ResponsiveContainer width="100%" height={180}>
@@ -399,12 +385,13 @@ export default function ControleGestion() {
                     }]}
                     margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
                     layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#4a7a9b', fontSize: 10 }} axisLine={false} tickLine={false}
+                    <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} horizontal={false} />
+                    <XAxis type="number" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
                       tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: '#7bacc8' }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
+                    <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }}
+                      formatter={(v: any) => [`${Number(v).toLocaleString()} MAD`, undefined]} />
+                    <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
                     <Bar dataKey="Carburant"   stackId="a" fill="#ff4444" fillOpacity={0.85} />
                     <Bar dataKey="Salaires"    stackId="a" fill="#ffb300" fillOpacity={0.85} />
                     <Bar dataKey="Maintenance" stackId="a" fill="#00d4ff" fillOpacity={0.85} />
@@ -415,17 +402,17 @@ export default function ControleGestion() {
                 {/* Totaux */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {[
-                    { label: 'CA',     value: lastMonth.ca,    color: '#00d4ff' },
+                    { label: 'CA',     value: lastMonth.ca,    color: c.accent },
                     { label: 'Coûts',  value: lastMonth.couts, color: '#ff4444' },
                     { label: 'Marge',  value: lastMonth.marge, color: '#00e676' },
                     { label: 'Taux',   value: `${Math.round((lastMonth.marge / lastMonth.ca) * 100)}%`, color: '#00e676' },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="px-3 py-2 rounded-lg text-center"
-                      style={{ background: 'rgba(10,22,40,0.5)', border: '1px solid #1e3a5f' }}>
+                      style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
                       <div className="text-sm font-bold" style={{ color }}>
                         {typeof value === 'number' ? `${value.toLocaleString()} MAD` : value}
                       </div>
-                      <div className="text-xs" style={{ color: '#4a7a9b' }}>{label}</div>
+                      <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
                     </div>
                   ))}
                 </div>
@@ -434,26 +421,24 @@ export default function ControleGestion() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TAB 2 — RENTABILITÉ CLIENTS
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══ TAB 2 — RENTABILITÉ CLIENTS ══ */}
         {activeTab === 'clients' && (
           <div className="space-y-4">
 
-            {/* Bar chart comparatif */}
             <div className="glass-card p-5">
-              <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                 CA et Marge par client (YTD)
               </h3>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={clientRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
-                  <XAxis dataKey="client" tick={{ fill: '#4a7a9b', fontSize: 10, angle: -25, textAnchor: 'end' }}
+                  <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
+                  <XAxis dataKey="client" tick={{ fill: c.textMuted, fontSize: 10, angle: -25, textAnchor: 'end' }}
                     axisLine={false} tickLine={false} interval={0} />
-                  <YAxis tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false}
+                  <YAxis tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false}
                     tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: '#7bacc8' }} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }}
+                    formatter={(v: any) => [`${Number(v).toLocaleString()} MAD`, undefined]} />
+                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, color: c.textSecondary }} />
                   <Bar dataKey="ca"    name="CA"    fill="#00d4ff" fillOpacity={0.85} radius={[4,4,0,0]} />
                   <Bar dataKey="marge" name="Marge" fill="#00e676" fillOpacity={0.85} radius={[4,4,0,0]} />
                 </BarChart>
@@ -462,50 +447,50 @@ export default function ControleGestion() {
 
             {/* Table clients */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Tableau de rentabilité détaillé
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['Client', 'CA (MAD)', 'Coût Revient', 'Marge', 'Taux marge', 'Missions', 'Km total', 'CA/km'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {[...clientRevenue].sort((a, b) => b.margePct - a.margePct).map((c, idx) => {
-                      const margeClr = c.margePct >= 40 ? '#00e676' : c.margePct >= 35 ? '#00d4ff' : c.margePct >= 30 ? '#ffb300' : '#ff4444';
-                      const caKm = (c.ca / c.km).toFixed(2);
+                    {[...clientRevenue].sort((a, b) => b.margePct - a.margePct).map((cr, idx) => {
+                      const margeClr = cr.margePct >= 40 ? '#00e676' : cr.margePct >= 35 ? '#00d4ff' : cr.margePct >= 30 ? '#ffb300' : '#ff4444';
+                      const caKm = (cr.ca / cr.km).toFixed(2);
                       return (
-                        <tr key={c.client} className="table-row-hover" style={{ borderBottom: '1px solid #1e3a5f26' }}>
+                        <tr key={cr.client} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold"
                                 style={{ background: `${PIE_COLORS[idx % 5]}22`, color: PIE_COLORS[idx % 5] }}>
                                 {idx + 1}
                               </span>
-                              <span className="text-sm font-medium" style={{ color: '#e8f4fd' }}>{c.client}</span>
+                              <span className="text-sm font-medium" style={{ color: c.textPrimary }}>{cr.client}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#00d4ff' }}>{c.ca.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-sm" style={{ color: '#7bacc8' }}>{c.coutRevient.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: margeClr }}>{c.marge.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.accent }}>{cr.ca.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm" style={{ color: c.textSecondary }}>{cr.coutRevient.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: margeClr }}>{cr.marge.toLocaleString()}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 rounded-full w-16" style={{ background: '#1e3a5f' }}>
-                                <div className="h-full rounded-full" style={{ width: `${c.margePct}%`, background: margeClr }} />
+                              <div className="flex-1 h-1.5 rounded-full w-16" style={{ background: c.border }}>
+                                <div className="h-full rounded-full" style={{ width: `${cr.margePct}%`, background: margeClr }} />
                               </div>
-                              <span className="text-sm font-bold w-10" style={{ color: margeClr }}>{c.margePct}%</span>
+                              <span className="text-sm font-bold w-10" style={{ color: margeClr }}>{cr.margePct}%</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm" style={{ color: '#7bacc8' }}>{c.missions}</td>
-                          <td className="px-4 py-3 text-sm font-mono" style={{ color: '#7bacc8' }}>{c.km.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#e8f4fd' }}>{caKm} MAD</td>
+                          <td className="px-4 py-3 text-sm" style={{ color: c.textSecondary }}>{cr.missions}</td>
+                          <td className="px-4 py-3 text-sm font-mono" style={{ color: c.textSecondary }}>{cr.km.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.textPrimary }}>{caKm} MAD</td>
                         </tr>
                       );
                     })}
@@ -514,15 +499,15 @@ export default function ControleGestion() {
               </div>
 
               {/* Totaux footer */}
-              <div className="px-5 py-3 grid grid-cols-4 gap-4" style={{ borderTop: '1px solid #1e3a5f', background: 'rgba(5,14,31,0.4)' }}>
+              <div className="px-5 py-3 grid grid-cols-4 gap-4" style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {[
-                  { label: 'CA total',       value: `${clientRevenue.reduce((s,c)=>s+c.ca,0).toLocaleString()} MAD`,    color: '#00d4ff' },
-                  { label: 'Marge totale',   value: `${clientRevenue.reduce((s,c)=>s+c.marge,0).toLocaleString()} MAD`, color: '#00e676' },
-                  { label: 'Missions total', value: clientRevenue.reduce((s,c)=>s+c.missions,0),                         color: '#7bacc8' },
-                  { label: 'Km total',       value: `${clientRevenue.reduce((s,c)=>s+c.km,0).toLocaleString()} km`,     color: '#7bacc8' },
+                  { label: 'CA total',       value: `${clientRevenue.reduce((s,cr)=>s+cr.ca,0).toLocaleString()} MAD`,    color: c.accent },
+                  { label: 'Marge totale',   value: `${clientRevenue.reduce((s,cr)=>s+cr.marge,0).toLocaleString()} MAD`, color: '#00e676' },
+                  { label: 'Missions total', value: clientRevenue.reduce((s,cr)=>s+cr.missions,0),                         color: c.textSecondary },
+                  { label: 'Km total',       value: `${clientRevenue.reduce((s,cr)=>s+cr.km,0).toLocaleString()} km`,     color: c.textSecondary },
                 ].map(({ label, value, color }) => (
                   <div key={label}>
-                    <div className="text-xs" style={{ color: '#4a7a9b' }}>{label}</div>
+                    <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
                     <div className="text-sm font-bold" style={{ color }}>{value}</div>
                   </div>
                 ))}
@@ -531,40 +516,37 @@ export default function ControleGestion() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TAB 3 — PERFORMANCE ROUTES
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══ TAB 3 — PERFORMANCE ROUTES ══ */}
         {activeTab === 'routes' && (
           <div className="space-y-4">
 
-            {/* Scatter-style bars : CA + marge% */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="glass-card p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>CA par axe routier (MAD)</h3>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>CA par axe routier (MAD)</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={[...routePerf].sort((a,b) => b.ca - a.ca)}
                     layout="vertical" margin={{ top: 5, right: 10, left: 80, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#4a7a9b', fontSize: 10 }} axisLine={false} tickLine={false}
+                    <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} horizontal={false} />
+                    <XAxis type="number" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
                       tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                    <YAxis type="category" dataKey="route" tick={{ fill: '#7bacc8', fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <YAxis type="category" dataKey="route" tick={{ fill: c.textSecondary, fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
+                    <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }}
+                      formatter={(v: any) => [`${Number(v).toLocaleString()} MAD`, undefined]} />
                     <Bar dataKey="ca" name="CA" fill="#00d4ff" fillOpacity={0.85} radius={[0,4,4,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="glass-card p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>Taux de marge par axe (%)</h3>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>Taux de marge par axe (%)</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={[...routePerf].sort((a,b) => b.margePct - a.margePct)}
                     layout="vertical" margin={{ top: 5, right: 10, left: 80, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#4a7a9b', fontSize: 10 }} axisLine={false} tickLine={false}
+                    <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} horizontal={false} />
+                    <XAxis type="number" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
                       domain={[0, 60]} tickFormatter={v => `${v}%`} />
-                    <YAxis type="category" dataKey="route" tick={{ fill: '#7bacc8', fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
-                    <Tooltip formatter={(v: any) => `${v}%`}
-                      contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }} />
+                    <YAxis type="category" dataKey="route" tick={{ fill: c.textSecondary, fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
+                    <Tooltip formatter={(v: any) => `${v}%`} contentStyle={tooltipStyle} />
                     <Bar dataKey="margePct" name="Marge %" fill="#00e676" fillOpacity={0.85} radius={[0,4,4,0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -573,16 +555,16 @@ export default function ControleGestion() {
 
             {/* Route table */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>Détail par axe routier</span>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Détail par axe routier</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['Axe routier', 'CA (MAD)', 'Coût / km', 'Taux marge', 'Missions', 'Rentabilité'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -591,25 +573,25 @@ export default function ControleGestion() {
                       const clr = r.margePct >= 42 ? '#00e676' : r.margePct >= 35 ? '#00d4ff' : r.margePct >= 30 ? '#ffb300' : '#ff4444';
                       const grade = r.margePct >= 42 ? 'A' : r.margePct >= 35 ? 'B' : r.margePct >= 30 ? 'C' : 'D';
                       return (
-                        <tr key={r.route} className="table-row-hover" style={{ borderBottom: '1px solid #1e3a5f26' }}>
+                        <tr key={r.route} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold px-2 py-0.5 rounded-lg"
                                 style={{ background: `${clr}15`, color: clr, border: `1px solid ${clr}30` }}>#{i+1}</span>
-                              <span className="font-medium" style={{ color: '#e8f4fd' }}>{r.route}</span>
+                              <span className="font-medium" style={{ color: c.textPrimary }}>{r.route}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-semibold" style={{ color: '#00d4ff' }}>{r.ca.toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: '#7bacc8' }}>{r.coutKm} MAD/km</td>
+                          <td className="px-4 py-3 font-semibold" style={{ color: c.accent }}>{r.ca.toLocaleString()}</td>
+                          <td className="px-4 py-3" style={{ color: c.textSecondary }}>{r.coutKm} MAD/km</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 rounded-full w-16" style={{ background: '#1e3a5f' }}>
+                              <div className="flex-1 h-1.5 rounded-full w-16" style={{ background: c.border }}>
                                 <div className="h-full rounded-full" style={{ width: `${r.margePct}%`, background: clr }} />
                               </div>
                               <span className="font-bold" style={{ color: clr }}>{r.margePct}%</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#7bacc8' }}>{r.missions}</td>
+                          <td className="px-4 py-3" style={{ color: c.textSecondary }}>{r.missions}</td>
                           <td className="px-4 py-3">
                             <span className="text-sm font-black px-3 py-1 rounded-lg"
                               style={{ background: `${clr}15`, color: clr, border: `1px solid ${clr}30` }}>
@@ -626,18 +608,15 @@ export default function ControleGestion() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TAB 4 — COÛTS VOYAGES
-        ══════════════════════════════════════════════════════════════════ */}
+        {/* ══ TAB 4 — COÛTS VOYAGES ══ */}
         {activeTab === 'voyages' && (
           <div className="space-y-4">
 
-            {/* Stacked bar CSS pur — sans Recharts pour éviter les crashs v3 */}
+            {/* Stacked bar CSS */}
             <div className="glass-card p-5">
-              <h3 className="text-sm font-semibold mb-3" style={{ color: '#e8f4fd' }}>
+              <h3 className="text-sm font-semibold mb-3" style={{ color: c.textPrimary }}>
                 Décomposition coût de revient par OT (MAD)
               </h3>
-              {/* Légende */}
               <div className="flex flex-wrap gap-3 mb-5">
                 {[
                   { label: 'Carburant',     color: '#ff4444' },
@@ -647,13 +626,12 @@ export default function ControleGestion() {
                   { label: 'Assurance',     color: '#00e676' },
                   { label: 'Divers',        color: '#4a7a9b' },
                 ].map(({ label, color }) => (
-                  <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#7bacc8' }}>
+                  <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: c.textSecondary }}>
                     <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
                     {label}
                   </div>
                 ))}
               </div>
-              {/* Barres CSS empilées */}
               <div className="space-y-3">
                 {voyageCosts.map(vc => {
                   const m      = missions.find(x => x.id === vc.missionId);
@@ -669,8 +647,8 @@ export default function ControleGestion() {
                   ];
                   return (
                     <div key={vc.missionId} className="flex items-center gap-3">
-                      <span className="text-xs font-mono w-12 flex-shrink-0" style={{ color: '#00d4ff' }}>{label}</span>
-                      <div className="flex-1 flex h-5 rounded overflow-hidden" style={{ background: '#1e3a5f' }}>
+                      <span className="text-xs font-mono w-12 flex-shrink-0" style={{ color: c.accent }}>{label}</span>
+                      <div className="flex-1 flex h-5 rounded overflow-hidden" style={{ background: c.border }}>
                         {segs.map((s, i) => (
                           <div key={i} style={{
                             width: `${(s.v / maxVal) * 100}%`,
@@ -679,7 +657,7 @@ export default function ControleGestion() {
                           }} />
                         ))}
                       </div>
-                      <span className="text-xs font-semibold w-20 text-right flex-shrink-0" style={{ color: '#e8f4fd' }}>
+                      <span className="text-xs font-semibold w-20 text-right flex-shrink-0" style={{ color: c.textPrimary }}>
                         {vc.total.toLocaleString()} MAD
                       </span>
                     </div>
@@ -690,16 +668,16 @@ export default function ControleGestion() {
 
             {/* Missions table */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>Coût de revient détaillé par mission</span>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Coût de revient détaillé par mission</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['OT', 'Client', 'Trajet', 'Prix HT', 'Coût Rev.', 'Marge', '%', 'MAD/km', 'Détail'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -713,22 +691,22 @@ export default function ControleGestion() {
                       const clr      = margePct >= 40 ? '#00e676' : margePct >= 30 ? '#ffb300' : '#ff4444';
                       return (
                         <tr key={m.id} className="table-row-hover cursor-pointer"
-                          style={{ borderBottom: '1px solid #1e3a5f26' }}
+                          style={{ borderBottom: `1px solid ${c.borderFaint}` }}
                           onClick={() => setSelectedMission(m.id)}>
                           <td className="px-4 py-3">
-                            <span className="font-mono text-xs font-semibold" style={{ color: '#00d4ff' }}>
+                            <span className="font-mono text-xs font-semibold" style={{ color: c.accent }}>
                               {m.reference.replace('OT-2025-', '#')}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-xs" style={{ color: '#7bacc8' }}>{m.client}</td>
-                          <td className="px-4 py-3 text-xs" style={{ color: '#7bacc8' }}>
+                          <td className="px-4 py-3 text-xs" style={{ color: c.textSecondary }}>{m.client}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: c.textSecondary }}>
                             {m.origine} → {m.destination}
-                            <span className="ml-1" style={{ color: '#2a5070' }}>({m.distance} km)</span>
+                            <span className="ml-1" style={{ color: c.textFaint }}>({m.distance} km)</span>
                           </td>
-                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#e8f4fd' }}>
+                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.textPrimary }}>
                             {m.prixHT.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-sm" style={{ color: '#7bacc8' }}>
+                          <td className="px-4 py-3 text-sm" style={{ color: c.textSecondary }}>
                             {vc.total.toLocaleString()}
                           </td>
                           <td className="px-4 py-3 text-sm font-semibold" style={{ color: clr }}>
@@ -737,10 +715,9 @@ export default function ControleGestion() {
                           <td className="px-4 py-3">
                             <span className="font-bold text-sm" style={{ color: clr }}>{margePct}%</span>
                           </td>
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: '#7bacc8' }}>{madKm}</td>
+                          <td className="px-4 py-3 text-xs font-mono" style={{ color: c.textSecondary }}>{madKm}</td>
                           <td className="px-4 py-3">
-                            <button className="flex items-center gap-1 text-xs"
-                              style={{ color: '#00d4ff' }}>
+                            <button className="flex items-center gap-1 text-xs" style={{ color: c.accent }}>
                               Voir <ChevronRight size={12} />
                             </button>
                           </td>
@@ -753,20 +730,20 @@ export default function ControleGestion() {
 
               {/* Footer totaux */}
               <div className="px-5 py-3 grid grid-cols-4 gap-4"
-                style={{ borderTop: '1px solid #1e3a5f', background: 'rgba(5,14,31,0.4)' }}>
+                style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {(() => {
                   const totalCA    = missions.reduce((s,m) => s + m.prixHT, 0);
                   const totalCout  = voyageCosts.reduce((s,v) => s + v.total, 0);
                   const totalMarge = totalCA - totalCout;
                   const avgMarge   = Math.round((totalMarge / totalCA) * 100);
                   return [
-                    { label: 'CA total',   value: `${totalCA.toLocaleString()} MAD`,    color: '#00d4ff' },
+                    { label: 'CA total',   value: `${totalCA.toLocaleString()} MAD`,    color: c.accent },
                     { label: 'Coûts',      value: `${totalCout.toLocaleString()} MAD`,  color: '#ff4444' },
                     { label: 'Marge',      value: `${totalMarge.toLocaleString()} MAD`, color: '#00e676' },
                     { label: 'Taux moyen', value: `${avgMarge}%`,                       color: '#00e676' },
                   ].map(({ label, value, color }) => (
                     <div key={label}>
-                      <div className="text-xs" style={{ color: '#4a7a9b' }}>{label}</div>
+                      <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
                       <div className="text-sm font-bold" style={{ color }}>{value}</div>
                     </div>
                   ));
@@ -778,7 +755,6 @@ export default function ControleGestion() {
 
       </div>
 
-      {/* Side panel voyage */}
       {selectedMission && (
         <VoyageDetail missionId={selectedMission} onClose={() => setSelectedMission(null)} />
       )}

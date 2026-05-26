@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Exploitation from './pages/Exploitation';
@@ -8,13 +9,13 @@ import ControleGestion from './pages/ControleGestion';
 import RH from './pages/RH';
 import Administratif from './pages/Administratif';
 
-export default function App() {
+function AppInner() {
+  const { c } = useTheme();
   return (
     <BrowserRouter>
-      <div className="flex h-screen overflow-hidden" style={{ background: '#020817' }}>
+      <div className="flex h-screen overflow-hidden" style={{ background: c.bgApp, transition: 'background 0.3s ease' }}>
         <Sidebar />
-        <main className="flex-1 overflow-hidden flex flex-col"
-          style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(10,30,60,0.18) 0%, transparent 60%)' }}>
+        <main className="flex-1 overflow-hidden flex flex-col">
           <Routes>
             <Route path="/"              element={<Dashboard />} />
             <Route path="/exploitation"  element={<Exploitation />} />
@@ -27,5 +28,13 @@ export default function App() {
         </main>
       </div>
     </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   );
 }

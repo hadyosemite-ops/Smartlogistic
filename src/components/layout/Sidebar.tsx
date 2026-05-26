@@ -4,28 +4,34 @@ import {
   BarChart3, Users, FileText, Bell, Settings, ChevronRight,
 } from 'lucide-react';
 import { alerts } from '../../data/mock';
+import { useTheme } from '../../context/ThemeContext';
 
 const unreadCount = alerts.filter(a => !a.lu).length;
 
 const nav = [
-  { to: '/',            icon: LayoutDashboard, label: 'Dashboard',       sub: 'Vue d\'ensemble' },
-  { to: '/exploitation',icon: Truck,           label: 'Exploitation',    sub: 'Missions & Transport' },
-  { to: '/securite',    icon: ShieldCheck,     label: 'Sécurité',        sub: 'Conducteurs & Alertes' },
-  { to: '/maintenance', icon: Wrench,          label: 'Maintenance',     sub: 'Véhicules & Entretien' },
-  { to: '/controle',    icon: BarChart3,       label: 'Contrôle Gestion',sub: 'Coûts & Rentabilité' },
-  { to: '/rh',          icon: Users,           label: 'Ressources Hum.', sub: 'Personnel & Planning' },
-  { to: '/administratif',icon: FileText,       label: 'Administratif',   sub: 'Documents & Conformité' },
+  { to: '/',             icon: LayoutDashboard, label: 'Dashboard',        sub: 'Vue d\'ensemble' },
+  { to: '/exploitation', icon: Truck,            label: 'Exploitation',     sub: 'Missions & Transport' },
+  { to: '/securite',     icon: ShieldCheck,      label: 'Sécurité',         sub: 'Conducteurs & Alertes' },
+  { to: '/maintenance',  icon: Wrench,           label: 'Maintenance',      sub: 'Véhicules & Entretien' },
+  { to: '/controle',     icon: BarChart3,        label: 'Contrôle Gestion', sub: 'Coûts & Rentabilité' },
+  { to: '/rh',           icon: Users,            label: 'Ressources Hum.',  sub: 'Personnel & Planning' },
+  { to: '/administratif',icon: FileText,         label: 'Administratif',    sub: 'Documents & Conformité' },
 ];
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const { c } = useTheme();
+
+  // Sidebar keeps the dark brand look in both modes (professional consistency)
+  const sidebarBg = 'linear-gradient(180deg, #050e1f 0%, #020817 100%)';
+  const sidebarBorder = '#1e3a5f';
 
   return (
     <aside className="flex flex-col w-64 min-h-screen"
-      style={{ background: 'linear-gradient(180deg, #050e1f 0%, #020817 100%)', borderRight: '1px solid #1e3a5f' }}>
+      style={{ background: sidebarBg, borderRight: `1px solid ${sidebarBorder}` }}>
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5" style={{ borderBottom: '1px solid #1e3a5f' }}>
+      <div className="flex items-center gap-3 px-5 py-5" style={{ borderBottom: `1px solid ${sidebarBorder}` }}>
         <div className="w-9 h-9 rounded-lg flex items-center justify-center"
           style={{ background: 'linear-gradient(135deg, #00d4ff, #0077aa)', boxShadow: '0 0 16px rgba(0,212,255,0.4)' }}>
           <Truck size={18} color="#fff" strokeWidth={2.5} />
@@ -72,7 +78,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4" style={{ borderTop: '1px solid #1e3a5f' }}>
+      <div className="p-4" style={{ borderTop: `1px solid ${sidebarBorder}` }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
             style={{ background: 'linear-gradient(135deg, #1a3366, #0f2040)', border: '1px solid #234878', color: '#00d4ff' }}>

@@ -10,6 +10,7 @@ import {
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
+import { useTheme } from '../context/ThemeContext';
 import {
   documentsVehicules, contratsClients, factures, vehicles,
   type TypeDocument, type StatutDocument
@@ -57,45 +58,46 @@ const PIE_COLORS = ['#00e676', '#ff4444', '#ffb300', '#00d4ff'];
 // ─── Contract Detail Panel ────────────────────────────────────────────────────
 
 function ContratPanel({ contratId, onClose }: { contratId: string; onClose: () => void }) {
-  const c = contratsClients.find(x => x.id === contratId);
-  if (!c) return null;
+  const { c } = useTheme();
+  const ct = contratsClients.find(x => x.id === contratId);
+  if (!ct) return null;
 
   const today     = new Date('2025-05-25');
-  const finDate   = new Date(c.dateFin);
+  const finDate   = new Date(ct.dateFin);
   const joursRestants = Math.round((finDate.getTime() - today.getTime()) / 86400000);
   const finClr    = joursRestants < 0 ? '#ff4444' : joursRestants < 90 ? '#ffb300' : '#00e676';
-  const contratFact = factures.filter(f => f.client === c.client);
+  const contratFact = factures.filter(f => f.client === ct.client);
   const caReel    = contratFact.reduce((s, f) => s + f.montantHT, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end"
-      style={{ background: 'rgba(2,8,23,0.78)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}>
-      <div className="glass-card w-full max-w-lg h-full overflow-y-auto p-6"
-        style={{ border: '1px solid #234878', borderRadius: '16px 0 0 16px' }}
+      <div className="w-full max-w-lg h-full overflow-y-auto p-6"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}`, borderRadius: '16px 0 0 16px' }}
         onClick={e => e.stopPropagation()}>
 
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h3 className="font-bold text-base" style={{ color: '#e8f4fd' }}>{c.client}</h3>
+            <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>{ct.client}</h3>
             <div className="flex items-center gap-2 mt-1">
-              <Badge label={c.type} className={contratTypeColor[c.type]} />
-              <Badge label={c.statut} className={
-                c.statut === 'actif' ? 'text-[#00e676] bg-[#00e67612] border-[#00e67640]' :
-                c.statut === 'en_negociation' ? 'text-[#ffb300] bg-[#ffb30012] border-[#ffb30040]' :
+              <Badge label={ct.type} className={contratTypeColor[ct.type]} />
+              <Badge label={ct.statut} className={
+                ct.statut === 'actif' ? 'text-[#00e676] bg-[#00e67612] border-[#00e67640]' :
+                ct.statut === 'en_negociation' ? 'text-[#ffb300] bg-[#ffb30012] border-[#ffb30040]' :
                 'text-[#ff4444] bg-[#ff444412] border-[#ff444440]'
               } />
             </div>
           </div>
-          <button onClick={onClose} style={{ color: '#4a7a9b' }}><X size={18} /></button>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
         </div>
 
         {/* Durée restante */}
         <div className="px-4 py-4 rounded-xl mb-5"
           style={{ background: `${finClr}0a`, border: `1px solid ${finClr}25` }}>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm" style={{ color: '#7bacc8' }}>Fin de contrat</span>
-            <span className="font-bold text-lg" style={{ color: finClr }}>{c.dateFin}</span>
+            <span className="text-sm" style={{ color: c.textSecondary }}>Fin de contrat</span>
+            <span className="font-bold text-lg" style={{ color: finClr }}>{ct.dateFin}</span>
           </div>
           <p className="text-xs" style={{ color: finClr }}>
             {joursRestants < 0
@@ -106,21 +108,21 @@ function ContratPanel({ contratId, onClose }: { contratId: string; onClose: () =
 
         {/* Détails contrat */}
         <div className="mb-5">
-          <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a7a9b' }}>
+          <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: c.textMuted }}>
             Conditions contractuelles
           </h4>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: 'Tarif / km',       value: `${c.tarifKm} MAD/km`,           color: '#00d4ff' },
-              { label: 'Volume mensuel',   value: `${c.volumeMensuel} missions`,    color: '#e8f4fd' },
-              { label: 'CA annuel estimé', value: `${(c.caAnnuelEstime/1000).toFixed(0)}K MAD`, color: '#00e676' },
+              { label: 'Tarif / km',       value: `${ct.tarifKm} MAD/km`,           color: c.accent },
+              { label: 'Volume mensuel',   value: `${ct.volumeMensuel} missions`,    color: c.textPrimary },
+              { label: 'CA annuel estimé', value: `${(ct.caAnnuelEstime/1000).toFixed(0)}K MAD`, color: '#00e676' },
               { label: 'CA réel (mois)',   value: `${caReel.toLocaleString()} MAD`, color: '#ffb300' },
-              { label: 'Date début',       value: c.dateDebut,                      color: '#7bacc8' },
-              { label: 'Date fin',         value: c.dateFin,                        color: finClr },
+              { label: 'Date début',       value: ct.dateDebut,                      color: c.textSecondary },
+              { label: 'Date fin',         value: ct.dateFin,                        color: finClr },
             ].map(({ label, value, color }) => (
               <div key={label} className="px-3 py-2.5 rounded-lg"
-                style={{ background: 'rgba(10,22,40,0.5)', border: '1px solid #1e3a5f' }}>
-                <div className="text-xs" style={{ color: '#4a7a9b' }}>{label}</div>
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
                 <div className="text-xs font-semibold mt-0.5" style={{ color }}>{value}</div>
               </div>
             ))}
@@ -129,30 +131,30 @@ function ContratPanel({ contratId, onClose }: { contratId: string; onClose: () =
 
         {/* Contact */}
         <div className="px-3 py-2.5 rounded-lg mb-5"
-          style={{ background: 'rgba(10,22,40,0.4)', border: '1px solid #1e3a5f' }}>
-          <div className="text-xs mb-1" style={{ color: '#4a7a9b' }}>Contact</div>
-          <div className="text-sm font-medium" style={{ color: '#e8f4fd' }}>{c.contact}</div>
-          {c.conditions && (
-            <div className="text-xs mt-1 italic" style={{ color: '#4a7a9b' }}>{c.conditions}</div>
+          style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+          <div className="text-xs mb-1" style={{ color: c.textMuted }}>Contact</div>
+          <div className="text-sm font-medium" style={{ color: c.textPrimary }}>{ct.contact}</div>
+          {ct.conditions && (
+            <div className="text-xs mt-1 italic" style={{ color: c.textMuted }}>{ct.conditions}</div>
           )}
         </div>
 
         {/* Factures liées */}
         {contratFact.length > 0 && (
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#4a7a9b' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: c.textMuted }}>
               Factures associées
             </h4>
             <div className="space-y-2">
               {contratFact.map(f => (
                 <div key={f.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg"
-                  style={{ background: 'rgba(10,22,40,0.5)', border: '1px solid #1e3a5f' }}>
+                  style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
                   <div>
-                    <div className="text-xs font-mono font-semibold" style={{ color: '#00d4ff' }}>{f.reference}</div>
-                    <div className="text-xs" style={{ color: '#4a7a9b' }}>Échéance : {f.dateEcheance}</div>
+                    <div className="text-xs font-mono font-semibold" style={{ color: c.accent }}>{f.reference}</div>
+                    <div className="text-xs" style={{ color: c.textMuted }}>Échéance : {f.dateEcheance}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-bold" style={{ color: '#e8f4fd' }}>
+                    <div className="text-sm font-bold" style={{ color: c.textPrimary }}>
                       {f.montantTTC.toLocaleString()} MAD TTC
                     </div>
                     <Badge label={f.statut} className={factureColor[f.statut]} />
@@ -172,6 +174,7 @@ function ContratPanel({ contratId, onClose }: { contratId: string; onClose: () =
 type TabAdmin = 'documents' | 'echeances' | 'contrats' | 'factures';
 
 export default function Administratif() {
+  const { c } = useTheme();
   const [activeTab, setActiveTab] = useState<TabAdmin>('documents');
   const [selectedContrat, setSelectedContrat] = useState<string | null>(null);
 
@@ -180,13 +183,12 @@ export default function Administratif() {
   // KPIs
   const docsExpires     = documentsVehicules.filter(d => d.statut === 'expire').length;
   const docsExpBientot  = documentsVehicules.filter(d => d.statut === 'expire_bientot').length;
-  const contratsActifs  = contratsClients.filter(c => c.statut === 'actif').length;
+  const contratsActifs  = contratsClients.filter(ct => ct.statut === 'actif').length;
   const facturesRetard  = factures.filter(f => f.statut === 'retard').length;
   const caEnAttente     = factures
     .filter(f => f.statut === 'en_attente' || f.statut === 'retard')
     .reduce((s, f) => s + f.montantTTC, 0);
 
-  // Échéances calendar — tous les docs triés par date expiration
   const allEcheances = documentsVehicules
     .map(d => {
       const v = vehicles.find(x => x.id === d.vehiculeId);
@@ -196,7 +198,6 @@ export default function Administratif() {
     })
     .sort((a, b) => a.jours - b.jours);
 
-  // Factures pie
   const facturePie = [
     { name: 'Payées',      value: factures.filter(f=>f.statut==='payee').length },
     { name: 'En attente',  value: factures.filter(f=>f.statut==='en_attente').length },
@@ -204,12 +205,13 @@ export default function Administratif() {
     { name: 'Litige',      value: factures.filter(f=>f.statut==='litige').length },
   ].filter(x => x.value > 0);
 
-  // CA par client (contrats)
-  const caChart = contratsClients.map(c => ({
-    client: c.client.split(' ')[0],
-    'CA estimé': Math.round(c.caAnnuelEstime / 12),
-    'CA réel':   factures.filter(f=>f.client===c.client).reduce((s,f)=>s+f.montantHT,0),
+  const caChart = contratsClients.map(ct => ({
+    client: ct.client.split(' ')[0],
+    'CA estimé': Math.round(ct.caAnnuelEstime / 12),
+    'CA réel':   factures.filter(f=>f.client===ct.client).reduce((s,f)=>s+f.montantHT,0),
   }));
+
+  const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -227,7 +229,7 @@ export default function Administratif() {
             value={docsExpires}
             icon={AlertTriangle}
             iconColor="#ff4444"
-            iconBg="rgba(255,68,68,0.1)"
+            iconBg={c.dangerBg}
             trendLabel={`+ ${docsExpBientot} expirent bientôt`}
             glowClass={docsExpires > 0 ? 'glow-danger' : ''}
           />
@@ -235,8 +237,8 @@ export default function Administratif() {
             label="Contrats actifs"
             value={contratsActifs}
             icon={Briefcase}
-            iconColor="#00d4ff"
-            iconBg="rgba(0,212,255,0.1)"
+            iconColor={c.accent}
+            iconBg={c.accentBg}
             trendLabel={`${contratsClients.length} total · 1 en négociation`}
           />
           <KPICard
@@ -244,7 +246,7 @@ export default function Administratif() {
             value={facturesRetard}
             icon={Receipt}
             iconColor="#ffb300"
-            iconBg="rgba(255,179,0,0.1)"
+            iconBg={c.warningBg}
             trendLabel="paiement dépassé"
             glowClass={facturesRetard > 0 ? 'glow-warning' : ''}
           />
@@ -254,14 +256,14 @@ export default function Administratif() {
             unit="MAD TTC"
             icon={Shield}
             iconColor="#00e676"
-            iconBg="rgba(0,230,118,0.1)"
+            iconBg={c.successBg}
             trendLabel="en attente + retard"
           />
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-xl w-fit"
-          style={{ background: 'rgba(10,22,40,0.6)', border: '1px solid #1e3a5f' }}>
+          style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
           {([
             { key: 'documents',  label: '📄 Documents véhicules' },
             { key: 'echeances',  label: '📅 Échéances' },
@@ -271,9 +273,9 @@ export default function Administratif() {
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: activeTab === t.key ? 'rgba(0,212,255,0.12)' : 'transparent',
-                color:      activeTab === t.key ? '#00d4ff' : '#4a7a9b',
-                border:     `1px solid ${activeTab === t.key ? 'rgba(0,212,255,0.3)' : 'transparent'}`,
+                background: activeTab === t.key ? c.accentBg : 'transparent',
+                color:      activeTab === t.key ? c.accent : c.textMuted,
+                border:     `1px solid ${activeTab === t.key ? c.accentBorder : 'transparent'}`,
               }}>
               {t.label}
             </button>
@@ -283,7 +285,6 @@ export default function Administratif() {
         {/* ══ TAB 1 : DOCUMENTS VÉHICULES ══ */}
         {activeTab === 'documents' && (
           <div className="space-y-4">
-            {/* Alert banner */}
             {(docsExpires + docsExpBientot) > 0 && (
               <div className="px-4 py-3 rounded-xl flex items-center gap-3"
                 style={{ background: 'rgba(255,68,68,0.06)', border: '1px solid rgba(255,68,68,0.25)' }}>
@@ -308,10 +309,10 @@ export default function Administratif() {
                     style={{ borderColor: borderClr }}>
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <div className="font-mono text-sm font-bold" style={{ color: '#00d4ff' }}>
+                        <div className="font-mono text-sm font-bold" style={{ color: c.accent }}>
                           {v.immatriculation}
                         </div>
-                        <div className="text-xs" style={{ color: '#7bacc8' }}>
+                        <div className="text-xs" style={{ color: c.textSecondary }}>
                           {v.marque} {v.modele} · {v.annee}
                         </div>
                       </div>
@@ -322,29 +323,25 @@ export default function Administratif() {
                         : <CheckCircle size={14} style={{ color: '#00e676' }} />}
                     </div>
                     <div className="space-y-1.5">
-                      {vDocs.map(doc => (
-                        <div key={doc.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg"
-                          style={{
-                            background: doc.statut === 'expire' ? 'rgba(255,68,68,0.08)' :
-                                        doc.statut === 'expire_bientot' ? 'rgba(255,179,0,0.06)' :
-                                        'rgba(10,22,40,0.4)',
-                            border: `1px solid ${
-                              doc.statut === 'expire' ? 'rgba(255,68,68,0.25)' :
-                              doc.statut === 'expire_bientot' ? 'rgba(255,179,0,0.2)' :
-                              '#1e3a5f'
-                            }`,
-                          }}>
-                          <span style={{ color: '#7bacc8' }}>{docTypeLabel[doc.type]}</span>
-                          <span style={{
-                            color: doc.statut === 'expire' ? '#ff4444' :
-                                   doc.statut === 'expire_bientot' ? '#ffb300' : '#00e676',
-                          }}>
-                            {doc.dateExpiration}
-                          </span>
-                        </div>
-                      ))}
+                      {vDocs.map(doc => {
+                        const docBg = doc.statut === 'expire' ? 'rgba(255,68,68,0.08)' :
+                                      doc.statut === 'expire_bientot' ? 'rgba(255,179,0,0.06)' :
+                                      c.bgElevated;
+                        const docBorder = doc.statut === 'expire' ? 'rgba(255,68,68,0.25)' :
+                                          doc.statut === 'expire_bientot' ? 'rgba(255,179,0,0.2)' :
+                                          c.border;
+                        const docColor = doc.statut === 'expire' ? '#ff4444' :
+                                         doc.statut === 'expire_bientot' ? '#ffb300' : '#00e676';
+                        return (
+                          <div key={doc.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg"
+                            style={{ background: docBg, border: `1px solid ${docBorder}` }}>
+                            <span style={{ color: c.textSecondary }}>{docTypeLabel[doc.type]}</span>
+                            <span style={{ color: docColor }}>{doc.dateExpiration}</span>
+                          </div>
+                        );
+                      })}
                       {vDocs.length === 0 && (
-                        <p className="text-xs italic" style={{ color: '#2a5070' }}>Aucun document enregistré</p>
+                        <p className="text-xs italic" style={{ color: c.textFaint }}>Aucun document enregistré</p>
                       )}
                     </div>
                   </div>
@@ -354,18 +351,18 @@ export default function Administratif() {
 
             {/* Table complète */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Tous les documents ({documentsVehicules.length})
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['Véhicule', 'Type', 'Libellé', 'Organisme', 'Émission', 'Expiration', 'Montant', 'Statut'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -381,26 +378,26 @@ export default function Administratif() {
                         const jours   = Math.round((expDate.getTime() - today.getTime()) / 86400000);
                         const expClr  = jours < 0 ? '#ff4444' : jours < 60 ? '#ffb300' : '#00e676';
                         return (
-                          <tr key={doc.id} className="table-row-hover" style={{ borderBottom: '1px solid #1e3a5f26' }}>
+                          <tr key={doc.id} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                             <td className="px-4 py-3">
-                              <div className="font-mono text-xs font-semibold" style={{ color: '#00d4ff' }}>
+                              <div className="font-mono text-xs font-semibold" style={{ color: c.accent }}>
                                 {v?.immatriculation}
                               </div>
-                              <div className="text-xs" style={{ color: '#4a7a9b' }}>{v?.marque} {v?.modele}</div>
+                              <div className="text-xs" style={{ color: c.textMuted }}>{v?.marque} {v?.modele}</div>
                             </td>
                             <td className="px-4 py-3">
                               <Badge label={docTypeLabel[doc.type]} className={docTypeColor[doc.type]} />
                             </td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#7bacc8' }}>{doc.libelle}</td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#4a7a9b' }}>{doc.organisme}</td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#4a7a9b' }}>{doc.dateEmission}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textSecondary }}>{doc.libelle}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textMuted }}>{doc.organisme}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textMuted }}>{doc.dateEmission}</td>
                             <td className="px-4 py-3">
                               <div className="text-xs font-semibold" style={{ color: expClr }}>{doc.dateExpiration}</div>
                               <div className="text-xs" style={{ color: expClr }}>
                                 {jours < 0 ? `Expiré ${Math.abs(jours)}j` : `dans ${jours}j`}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#7bacc8' }}>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textSecondary }}>
                               {doc.montant ? `${doc.montant.toLocaleString()} MAD` : '—'}
                             </td>
                             <td className="px-4 py-3">
@@ -423,7 +420,7 @@ export default function Administratif() {
 
               {/* Timeline */}
               <div className="glass-card p-5 lg:col-span-2">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                   Calendrier des renouvellements
                 </h3>
                 <div className="space-y-2">
@@ -433,32 +430,27 @@ export default function Administratif() {
                     return (
                       <div key={doc.id}
                         className="flex items-center gap-4 px-4 py-3 rounded-xl transition-all"
-                        style={{
-                          background: `${clr}06`,
-                          border: `1px solid ${clr}20`,
-                        }}>
+                        style={{ background: `${clr}06`, border: `1px solid ${clr}20` }}>
                         <span className="text-base w-5 flex-shrink-0">{icon}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs font-bold" style={{ color: '#00d4ff' }}>
+                            <span className="font-mono text-xs font-bold" style={{ color: c.accent }}>
                               {doc.vehicule?.immatriculation}
                             </span>
                             <Badge label={docTypeLabel[doc.type]} className={docTypeColor[doc.type]} />
-                            <span className="text-xs truncate" style={{ color: '#7bacc8' }}>{doc.libelle}</span>
+                            <span className="text-xs truncate" style={{ color: c.textSecondary }}>{doc.libelle}</span>
                           </div>
-                          <div className="text-xs mt-0.5" style={{ color: '#4a7a9b' }}>{doc.organisme}</div>
+                          <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{doc.organisme}</div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <div className="text-xs font-semibold" style={{ color: clr }}>
-                            {doc.dateExpiration}
-                          </div>
+                          <div className="text-xs font-semibold" style={{ color: clr }}>{doc.dateExpiration}</div>
                           <div className="text-xs font-bold" style={{ color: clr }}>
                             {doc.jours < 0
                               ? `Expiré depuis ${Math.abs(doc.jours)}j`
                               : `dans ${doc.jours}j`}
                           </div>
                           {doc.montant && (
-                            <div className="text-xs" style={{ color: '#4a7a9b' }}>
+                            <div className="text-xs" style={{ color: c.textMuted }}>
                               {doc.montant.toLocaleString()} MAD
                             </div>
                           )}
@@ -472,7 +464,7 @@ export default function Administratif() {
               {/* Résumé statuts */}
               <div className="space-y-4">
                 <div className="glass-card p-5">
-                  <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                  <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                     Statut des documents
                   </h3>
                   <div className="space-y-3">
@@ -483,10 +475,10 @@ export default function Administratif() {
                     ].map(({ label, count, color }) => (
                       <div key={label}>
                         <div className="flex justify-between text-xs mb-1">
-                          <span style={{ color: '#7bacc8' }}>{label}</span>
+                          <span style={{ color: c.textSecondary }}>{label}</span>
                           <span className="font-bold" style={{ color }}>{count}</span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{ background: '#1e3a5f' }}>
+                        <div className="h-1.5 rounded-full" style={{ background: c.border }}>
                           <div className="h-full rounded-full"
                             style={{ width: `${(count / documentsVehicules.length) * 100}%`, background: color }} />
                         </div>
@@ -496,7 +488,7 @@ export default function Administratif() {
                 </div>
 
                 <div className="glass-card p-5">
-                  <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                  <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                     Coût renouvellements
                   </h3>
                   <div className="space-y-2">
@@ -504,7 +496,7 @@ export default function Administratif() {
                       .filter(d => d.statut !== 'valide' && d.montant)
                       .map(doc => (
                         <div key={doc.id} className="flex justify-between text-xs">
-                          <span style={{ color: '#7bacc8' }}>
+                          <span style={{ color: c.textSecondary }}>
                             {vehicles.find(v=>v.id===doc.vehiculeId)?.immatriculation} · {docTypeLabel[doc.type]}
                           </span>
                           <span className="font-semibold" style={{ color: '#ffb300' }}>
@@ -513,8 +505,8 @@ export default function Administratif() {
                         </div>
                       ))}
                     <div className="pt-2 mt-1 flex justify-between text-xs font-bold"
-                      style={{ borderTop: '1px solid #1e3a5f' }}>
-                      <span style={{ color: '#7bacc8' }}>Total à prévoir</span>
+                      style={{ borderTop: `1px solid ${c.border}` }}>
+                      <span style={{ color: c.textSecondary }}>Total à prévoir</span>
                       <span style={{ color: '#ff4444' }}>
                         {documentsVehicules
                           .filter(d => d.statut !== 'valide' && d.montant)
@@ -533,21 +525,19 @@ export default function Administratif() {
         {activeTab === 'contrats' && (
           <div className="space-y-4">
 
-            {/* Bar chart CA estimé vs réel */}
             <div className="glass-card p-5">
-              <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                 CA mensuel estimé vs réel par client (MAD)
               </h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={caChart} margin={{ top: 5, right: 10, left: -5, bottom: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
-                  <XAxis dataKey="client" tick={{ fill: '#4a7a9b', fontSize: 10, angle: -20, textAnchor: 'end' }}
+                  <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
+                  <XAxis dataKey="client" tick={{ fill: c.textMuted, fontSize: 10, angle: -20, textAnchor: 'end' }}
                     axisLine={false} tickLine={false} interval={0} />
-                  <YAxis tick={{ fill: '#4a7a9b', fontSize: 11 }} axisLine={false} tickLine={false}
+                  <YAxis tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false}
                     tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip
-                    contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: any) => `${Number(v).toLocaleString()} MAD`} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }}
+                    formatter={(v: any) => [`${Number(v).toLocaleString()} MAD`, undefined]} />
                   <Bar dataKey="CA estimé" fill="#00d4ff" fillOpacity={0.7}  radius={[4,4,0,0]} />
                   <Bar dataKey="CA réel"   fill="#00e676" fillOpacity={0.85} radius={[4,4,0,0]} />
                 </BarChart>
@@ -556,45 +546,45 @@ export default function Administratif() {
 
             {/* Table contrats */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>Portefeuille clients</span>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Portefeuille clients</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['Client', 'Type', 'Tarif/km', 'Volume/mois', 'CA annuel', 'Période', 'Statut', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {contratsClients.map(c => {
-                      const finDate    = new Date(c.dateFin);
+                    {contratsClients.map(ct => {
+                      const finDate    = new Date(ct.dateFin);
                       const jours      = Math.round((finDate.getTime() - today.getTime()) / 86400000);
-                      const dateClr    = jours < 0 ? '#ff4444' : jours < 90 ? '#ffb300' : '#7bacc8';
+                      const dateClr    = jours < 0 ? '#ff4444' : jours < 90 ? '#ffb300' : c.textSecondary;
                       return (
-                        <tr key={c.id} className="table-row-hover cursor-pointer"
-                          style={{ borderBottom: '1px solid #1e3a5f26' }}
-                          onClick={() => setSelectedContrat(c.id)}>
-                          <td className="px-4 py-3 text-sm font-medium" style={{ color: '#e8f4fd' }}>
-                            {c.client}
+                        <tr key={ct.id} className="table-row-hover cursor-pointer"
+                          style={{ borderBottom: `1px solid ${c.borderFaint}` }}
+                          onClick={() => setSelectedContrat(ct.id)}>
+                          <td className="px-4 py-3 text-sm font-medium" style={{ color: c.textPrimary }}>
+                            {ct.client}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge label={c.type} className={contratTypeColor[c.type]} />
+                            <Badge label={ct.type} className={contratTypeColor[ct.type]} />
                           </td>
-                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#00d4ff' }}>
-                            {c.tarifKm} MAD
+                          <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.accent }}>
+                            {ct.tarifKm} MAD
                           </td>
-                          <td className="px-4 py-3 text-sm" style={{ color: '#7bacc8' }}>
-                            {c.volumeMensuel} missions
+                          <td className="px-4 py-3 text-sm" style={{ color: c.textSecondary }}>
+                            {ct.volumeMensuel} missions
                           </td>
                           <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#00e676' }}>
-                            {(c.caAnnuelEstime / 1000).toFixed(0)}K MAD
+                            {(ct.caAnnuelEstime / 1000).toFixed(0)}K MAD
                           </td>
                           <td className="px-4 py-3 text-xs" style={{ color: dateClr }}>
-                            {c.dateDebut} → {c.dateFin}
+                            {ct.dateDebut} → {ct.dateFin}
                             {jours < 90 && (
                               <div className="font-semibold">
                                 {jours < 0 ? `Expiré ${Math.abs(jours)}j` : `dans ${jours}j`}
@@ -602,14 +592,14 @@ export default function Administratif() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge label={c.statut} className={
-                              c.statut === 'actif' ? 'text-[#00e676] bg-[#00e67612] border-[#00e67640]' :
-                              c.statut === 'en_negociation' ? 'text-[#ffb300] bg-[#ffb30012] border-[#ffb30040]' :
+                            <Badge label={ct.statut} className={
+                              ct.statut === 'actif' ? 'text-[#00e676] bg-[#00e67612] border-[#00e67640]' :
+                              ct.statut === 'en_negociation' ? 'text-[#ffb300] bg-[#ffb30012] border-[#ffb30040]' :
                               'text-[#ff4444] bg-[#ff444412] border-[#ff444440]'
                             } />
                           </td>
                           <td className="px-4 py-3">
-                            <button className="flex items-center gap-1 text-xs" style={{ color: '#00d4ff' }}>
+                            <button className="flex items-center gap-1 text-xs" style={{ color: c.accent }}>
                               Détail <ChevronRight size={12} />
                             </button>
                           </td>
@@ -620,17 +610,17 @@ export default function Administratif() {
                 </table>
               </div>
               <div className="px-5 py-3 flex justify-between"
-                style={{ borderTop: '1px solid #1e3a5f', background: 'rgba(5,14,31,0.4)' }}>
+                style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 <div>
-                  <div className="text-xs" style={{ color: '#4a7a9b' }}>CA annuel total estimé</div>
-                  <div className="text-sm font-bold" style={{ color: '#00d4ff' }}>
-                    {(contratsClients.reduce((s,c)=>s+c.caAnnuelEstime,0)/1000000).toFixed(2)} M MAD
+                  <div className="text-xs" style={{ color: c.textMuted }}>CA annuel total estimé</div>
+                  <div className="text-sm font-bold" style={{ color: c.accent }}>
+                    {(contratsClients.reduce((s,ct)=>s+ct.caAnnuelEstime,0)/1000000).toFixed(2)} M MAD
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs" style={{ color: '#4a7a9b' }}>Volume mensuel total</div>
+                  <div className="text-xs" style={{ color: c.textMuted }}>Volume mensuel total</div>
                   <div className="text-sm font-bold" style={{ color: '#00e676' }}>
-                    {contratsClients.reduce((s,c)=>s+c.volumeMensuel,0)} missions/mois
+                    {contratsClients.reduce((s,ct)=>s+ct.volumeMensuel,0)} missions/mois
                   </div>
                 </div>
               </div>
@@ -645,17 +635,17 @@ export default function Administratif() {
 
               {/* Stats */}
               <div className="glass-card p-5 lg:col-span-2">
-                <h3 className="text-sm font-semibold mb-1" style={{ color: '#e8f4fd' }}>
+                <h3 className="text-sm font-semibold mb-1" style={{ color: c.textPrimary }}>
                   Suivi facturation — Mai 2025
                 </h3>
-                <p className="text-xs mb-4" style={{ color: '#4a7a9b' }}>Montants en MAD TTC</p>
+                <p className="text-xs mb-4" style={{ color: c.textMuted }}>Montants en MAD TTC</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     {
                       label:   'Total facturé',
                       value:   factures.reduce((s,f)=>s+f.montantTTC,0),
                       subval:  `${factures.length} factures`,
-                      color:   '#e8f4fd',
+                      color:   c.textPrimary,
                     },
                     {
                       label:   'Encaissé',
@@ -667,7 +657,7 @@ export default function Administratif() {
                       label:   'En attente',
                       value:   factures.filter(f=>f.statut==='en_attente').reduce((s,f)=>s+f.montantTTC,0),
                       subval:  `${factures.filter(f=>f.statut==='en_attente').length} en cours`,
-                      color:   '#00d4ff',
+                      color:   c.accent,
                     },
                     {
                       label:   'En retard',
@@ -681,8 +671,8 @@ export default function Administratif() {
                       <div className="text-lg font-black" style={{ color }}>
                         {value.toLocaleString()} MAD
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: '#4a7a9b' }}>{label}</div>
-                      <div className="text-xs" style={{ color: '#2a5070' }}>{subval}</div>
+                      <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{label}</div>
+                      <div className="text-xs" style={{ color: c.textFaint }}>{subval}</div>
                     </div>
                   ))}
                 </div>
@@ -690,7 +680,7 @@ export default function Administratif() {
 
               {/* Pie */}
               <div className="glass-card p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8f4fd' }}>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>
                   Répartition statuts
                 </h3>
                 <ResponsiveContainer width="100%" height={150}>
@@ -701,8 +691,7 @@ export default function Administratif() {
                         <Cell key={i} fill={PIE_COLORS[i]} fillOpacity={0.85} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{ background: '#0f2040', border: '1px solid #1e3a5f', borderRadius: 8, fontSize: 12 }} />
+                    <Tooltip contentStyle={tooltipStyle} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-1.5 mt-2">
@@ -710,9 +699,9 @@ export default function Administratif() {
                     <div key={d.name} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i] }} />
-                        <span style={{ color: '#7bacc8' }}>{d.name}</span>
+                        <span style={{ color: c.textSecondary }}>{d.name}</span>
                       </div>
-                      <span className="font-semibold" style={{ color: '#e8f4fd' }}>{d.value}</span>
+                      <span className="font-semibold" style={{ color: c.textPrimary }}>{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -721,18 +710,18 @@ export default function Administratif() {
 
             {/* Table factures */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: '1px solid #1e3a5f' }}>
-                <span className="text-sm font-semibold" style={{ color: '#e8f4fd' }}>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Liste des factures
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e3a5f' }}>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
                       {['Référence', 'Client', 'Émission', 'Échéance', 'HT', 'TVA', 'TTC', 'Statut'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: '#2a5070', background: 'rgba(5,14,31,0.4)' }}>{h}</th>
+                          style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -745,27 +734,27 @@ export default function Administratif() {
                       .map(f => {
                         const echeanceDate = new Date(f.dateEcheance);
                         const joursEch     = Math.round((echeanceDate.getTime() - today.getTime()) / 86400000);
-                        const echClr       = f.statut === 'retard' ? '#ff4444' : joursEch < 7 ? '#ffb300' : '#7bacc8';
+                        const echClr       = f.statut === 'retard' ? '#ff4444' : joursEch < 7 ? '#ffb300' : c.textSecondary;
                         return (
-                          <tr key={f.id} className="table-row-hover" style={{ borderBottom: '1px solid #1e3a5f26' }}>
-                            <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: '#00d4ff' }}>
+                          <tr key={f.id} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
+                            <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: c.accent }}>
                               {f.reference}
                             </td>
-                            <td className="px-4 py-3 text-sm" style={{ color: '#e8f4fd' }}>{f.client}</td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#4a7a9b' }}>{f.dateEmission}</td>
+                            <td className="px-4 py-3 text-sm" style={{ color: c.textPrimary }}>{f.client}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textMuted }}>{f.dateEmission}</td>
                             <td className="px-4 py-3 text-xs" style={{ color: echClr }}>
                               {f.dateEcheance}
                               {f.statut === 'retard' && (
                                 <div className="font-semibold">Retard {Math.abs(joursEch)}j</div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm" style={{ color: '#7bacc8' }}>
+                            <td className="px-4 py-3 text-sm" style={{ color: c.textSecondary }}>
                               {f.montantHT.toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#4a7a9b' }}>
+                            <td className="px-4 py-3 text-xs" style={{ color: c.textMuted }}>
                               {f.tva.toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#e8f4fd' }}>
+                            <td className="px-4 py-3 text-sm font-semibold" style={{ color: c.textPrimary }}>
                               {f.montantTTC.toLocaleString()}
                             </td>
                             <td className="px-4 py-3">
@@ -780,15 +769,15 @@ export default function Administratif() {
 
               {/* Footer */}
               <div className="px-5 py-3 grid grid-cols-4 gap-4"
-                style={{ borderTop: '1px solid #1e3a5f', background: 'rgba(5,14,31,0.4)' }}>
+                style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {[
-                  { label: 'Total HT',  value: `${factures.reduce((s,f)=>s+f.montantHT,0).toLocaleString()} MAD`,  color: '#7bacc8' },
-                  { label: 'Total TVA', value: `${factures.reduce((s,f)=>s+f.tva,0).toLocaleString()} MAD`,         color: '#4a7a9b' },
-                  { label: 'Total TTC', value: `${factures.reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`,  color: '#00d4ff' },
+                  { label: 'Total HT',  value: `${factures.reduce((s,f)=>s+f.montantHT,0).toLocaleString()} MAD`,  color: c.textSecondary },
+                  { label: 'Total TVA', value: `${factures.reduce((s,f)=>s+f.tva,0).toLocaleString()} MAD`,         color: c.textMuted },
+                  { label: 'Total TTC', value: `${factures.reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`,  color: c.accent },
                   { label: 'Encaissé',  value: `${factures.filter(f=>f.statut==='payee').reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`, color: '#00e676' },
                 ].map(({ label, value, color }) => (
                   <div key={label}>
-                    <div className="text-xs" style={{ color: '#4a7a9b' }}>{label}</div>
+                    <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
                     <div className="text-sm font-bold" style={{ color }}>{value}</div>
                   </div>
                 ))}
