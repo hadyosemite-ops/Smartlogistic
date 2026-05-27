@@ -969,17 +969,17 @@ export default function Securite() {
 // ─── Truck Diagram Modal ──────────────────────────────────────────────────────
 
 const TRUCK_ZONES = [
-  { id: 'documents',    cat: 'Documents réglementaires', label: 'Documents',      ncPos: { x: 166, y: 84  } },
-  { id: 'conducteur',   cat: 'Conducteur & sécurité',   label: 'Conducteur',     ncPos: { x: 166, y: 140 } },
-  { id: 'epi',          cat: 'EPI obligatoires',        label: 'EPI',            ncPos: { x: 166, y: 178 } },
-  { id: 'tracteur',     cat: 'Tracteur',                label: 'Tracteur',       ncPos: { x: 232, y: 134 } },
-  { id: 'benne',        cat: 'Benne / Remorque',        label: 'Benne / Rem.',   ncPos: { x: 606, y: 68  } },
-  { id: 'pneus',        cat: 'Pneumatiques',            label: 'Pneumatiques',   ncPos: { x: 188, y: 218 } },
-  { id: 'environnement',cat: 'Environnement & urgence', label: 'Environ.',       ncPos: { x: 600, y: 210 } },
+  { id: 'documents',    cat: 'Documents réglementaires', label: 'Documents',      ncPos: { x: 188, y: 78  } },
+  { id: 'conducteur',   cat: 'Conducteur & sécurité',   label: 'Conducteur',     ncPos: { x: 188, y: 150 } },
+  { id: 'epi',          cat: 'EPI obligatoires',        label: 'EPI',            ncPos: { x: 188, y: 192 } },
+  { id: 'tracteur',     cat: 'Tracteur',                label: 'Tracteur',       ncPos: { x: 262, y: 115 } },
+  { id: 'benne',        cat: 'Benne / Remorque',        label: 'Benne / Rem.',   ncPos: { x: 722, y: 50  } },
+  { id: 'pneus',        cat: 'Pneumatiques',            label: 'Pneumatiques',   ncPos: { x: 148, y: 222 } },
+  { id: 'environnement',cat: 'Environnement & urgence', label: 'Environ.',       ncPos: { x: 490, y: 216 } },
 ];
 
 function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; onClose: () => void }) {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
   const [activeZone, setActiveZone] = useState<string | null>(null);
 
   const vehicle = vehicles.find(v => v.id === inspection.vehiculeId);
@@ -1035,6 +1035,12 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
   const tScore = inspection.tauxConformite;
   const tColor = tScore >= 95 ? '#00e676' : tScore >= 80 ? '#ffb300' : '#ff4444';
 
+  // Structural palette (theme-aware)
+  const sk = isDark ? '#1e3a5f' : '#7888a0';
+  const sf = isDark ? '#0c1e38' : '#c8d8ec';
+  const gf = isDark ? 'rgba(100,180,255,0.13)' : 'rgba(140,195,255,0.38)';
+  const gb = isDark ? '#2a5a8a' : '#5888b8';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)', padding: '16px' }}
@@ -1072,21 +1078,53 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
             <div className="text-xs font-semibold text-center mb-2" style={{ color: c.textFaint }}>
               Cliquez sur une zone pour voir les détails
             </div>
-            <svg viewBox="0 0 648 268" className="w-full" style={{ maxHeight: 320 }}>
+            <svg viewBox="0 0 760 278" className="w-full" style={{ maxHeight: 330 }}>
+              {/* ════════════════════════════════════════════════════════ */}
+              {/*  PROFESSIONAL EUROPEAN CAB-OVER TRUCK (flat-face)       */}
+              {/* ════════════════════════════════════════════════════════ */}
 
-              {/* ── Benne / Remorque ─────────────────────── */}
-              <rect x="246" y="56" width="376" height="149" rx="6"
+              {/* Ground shadow */}
+              <ellipse cx="400" cy="272" rx="340" ry="5" fill={isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)'} style={{ pointerEvents: 'none' }} />
+
+              {/* ── BENNE / REMORQUE ─────────────────────────────────── */}
+              <path d="M 296,50 L 318,38 L 736,38 L 736,213 L 296,213 Z"
                 {...interactiveProps('benne', 'Benne / Remorque')} />
-              {/* Benne inner lines */}
-              <line x1="247" y1="113" x2="621" y2="113" stroke={c.borderFaint} strokeWidth="0.6" strokeDasharray="8,12" style={{ pointerEvents: 'none' }} />
-              <line x1="247" y1="152" x2="621" y2="152" stroke={c.borderFaint} strokeWidth="0.6" strokeDasharray="8,12" style={{ pointerEvents: 'none' }} />
-              {/* Benne top angle detail */}
-              <polygon points="246,56 296,38 621,38 621,56" fill={zoneColor('Benne / Remorque', isActive('benne'))} stroke={zoneBorder('Benne / Remorque')} strokeWidth="1" style={{ pointerEvents: 'none' }} />
-              {/* Rear door lines */}
-              <line x1="618" y1="56" x2="618" y2="205" stroke={zoneBorder('Benne / Remorque')} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              {/* Benne structural ribs */}
+              {[400, 500, 600, 700].map(x => (
+                <line key={x} x1={x} y1="38" x2={x} y2="213" stroke={sk} strokeWidth="0.9" opacity="0.55" style={{ pointerEvents: 'none' }} />
+              ))}
+              {/* Horizontal stiffener mid-height */}
+              <line x1="296" y1="126" x2="736" y2="126" stroke={sk} strokeWidth="0.7" opacity="0.4" style={{ pointerEvents: 'none' }} />
+              {/* Reflective tape strip bottom */}
+              <rect x="296" y="200" width="440" height="5"
+                fill="none" stroke={isDark ? '#e8cc44' : '#b89900'} strokeWidth="0.7"
+                strokeDasharray="14,10" opacity="0.65" style={{ pointerEvents: 'none' }} />
+              {/* Rear door frame */}
+              <rect x="718" y="38" width="18" height="175" rx="2"
+                fill={sf} stroke={sk} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              {/* Rear door hinge lines */}
+              <line x1="719" y1="70"  x2="735" y2="70"  stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              <line x1="719" y1="110" x2="735" y2="110" stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              <line x1="719" y1="180" x2="735" y2="180" stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              {/* Rear lights cluster (right side) */}
+              <rect x="732" y="50" width="6" height="22" rx="2" fill="#e02020" style={{ pointerEvents: 'none' }} />
+              <rect x="732" y="78" width="6" height="14" rx="2" fill="#e07020" style={{ pointerEvents: 'none' }} />
+              <rect x="732" y="98" width="6" height="10" rx="2" fill={isDark ? '#ffffff40' : '#cccccc'} style={{ pointerEvents: 'none' }} />
+              <rect x="732" y="180" width="6" height="22" rx="2" fill="#e02020" style={{ pointerEvents: 'none' }} />
+              <rect x="732" y="158" width="6" height="14" rx="2" fill="#e07020" style={{ pointerEvents: 'none' }} />
 
-              {/* ── Chassis ──────────────────────────────── */}
-              <rect x="52" y="204" width="568" height="14" rx="2"
+              {/* ── HYDRAULIC LIFT PISTON (benne raise) ──────────────── */}
+              <rect x="277" y="94" width="12" height="94" rx="5"
+                fill={sf} stroke={sk} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              <rect x="280" y="82" width="6" height="18" rx="3"
+                fill={isDark ? '#2a4a6a' : '#a0b8d0'} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              {/* Piston ring detail */}
+              {[100, 114, 128, 142].map(y => (
+                <line key={y} x1="277" y1={y} x2="289" y2={y} stroke={sk} strokeWidth="0.5" opacity="0.6" style={{ pointerEvents: 'none' }} />
+              ))}
+
+              {/* ── CHASSIS / ENVIRONNEMENT ──────────────────────────── */}
+              <rect x="52" y="213" width="684" height="13" rx="3"
                 fill={zoneColor('Environnement & urgence', isActive('environnement'))}
                 stroke={zoneBorder('Environnement & urgence')}
                 strokeWidth={isActive('environnement') ? 2 : 1}
@@ -1095,79 +1133,215 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
                 onMouseEnter={() => !activeZone && setActiveZone('environnement')}
                 onMouseLeave={() => !activeZone && setActiveZone(null)}
               />
+              {/* Chassis cross-members */}
+              {[200, 300, 400, 500, 620].map(x => (
+                <rect key={x} x={x} y="213" width="8" height="13" rx="1"
+                  fill={sk} opacity="0.35" style={{ pointerEvents: 'none' }} />
+              ))}
 
-              {/* ── Engine Hood (Tracteur) ────────────────── */}
-              <rect x="172" y="124" width="72" height="80" rx="3"
+              {/* ── TRACTEUR (mechanical zone, behind cab) ───────────── */}
+              <rect x="200" y="108" width="70" height="105" rx="3"
                 {...interactiveProps('tracteur', 'Tracteur')} />
-              {/* Hood detail lines */}
-              <line x1="172" y1="148" x2="244" y2="148" stroke={zoneBorder('Tracteur')} strokeWidth="0.6" strokeDasharray="4,6" style={{ pointerEvents: 'none' }} />
-              <line x1="172" y1="168" x2="244" y2="168" strokeDasharray="4,6" stroke={zoneBorder('Tracteur')} strokeWidth="0.6" style={{ pointerEvents: 'none' }} />
+              {/* Grille / louvre vents */}
+              {[120, 133, 146, 159, 172, 185].map(y => (
+                <line key={y} x1="204" y1={y} x2="267" y2={y}
+                  stroke={sk} strokeWidth="0.75" opacity="0.6" style={{ pointerEvents: 'none' }} />
+              ))}
+              {/* Air intake grille box */}
+              <rect x="204" y="116" width="62" height="78" rx="2"
+                fill="none" stroke={sk} strokeWidth="0.8" opacity="0.5" style={{ pointerEvents: 'none' }} />
 
-              {/* ── Cab structural outline (drawn over zones) ── */}
-              <path d="M52,204 L52,92 Q54,76 78,74 L152,74 Q168,74 172,86 L172,124 L172,204 Z"
-                fill="none" stroke={c.borderStrong} strokeWidth="2" style={{ pointerEvents: 'none' }} />
-              {/* Windshield */}
-              <polygon points="152,74 170,86 172,86 172,112 164,124 172,124 172,92 168,84 152,75"
-                fill={`${c.bgCard}cc`} stroke={c.borderStrong} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              {/* ── FUEL TANK ────────────────────────────────────────── */}
+              <rect x="248" y="158" width="28" height="55" rx="4"
+                fill={sf} stroke={sk} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              {/* Tank bands */}
+              <line x1="248" y1="173" x2="276" y2="173" stroke={sk} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              <line x1="248" y1="196" x2="276" y2="196" stroke={sk} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* Fuel cap */}
+              <circle cx="262" cy="163" r="4" fill={sk} opacity="0.5" style={{ pointerEvents: 'none' }} />
 
-              {/* ── Documents zone (upper cab) ──────────── */}
-              <path d="M53,93 L53,124 L170,124 L170,112 L172,112 L172,86 Q168,75 152,75 L78,75 Q55,75 53,93 Z"
+              {/* ── AIR DEFLECTOR (cab roof ↔ benne top) ─────────────── */}
+              <path d="M 198,54 L 224,38 L 294,38 L 294,50 L 228,62 L 198,66 Z"
+                fill={sf} stroke={sk} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+
+              {/* ── FIFTH WHEEL COUPLING ─────────────────────────────── */}
+              <rect x="265" y="207" width="30" height="8" rx="2"
+                fill={sk} stroke={sk} strokeWidth="0.5" style={{ pointerEvents: 'none' }} />
+              <ellipse cx="280" cy="211" rx="10" ry="3.5"
+                fill="none" stroke={isDark ? '#3a6a9a' : '#809ab8'} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+
+              {/* ── CAB ZONES (drawn below structural glass/details) ──── */}
+              {/* Documents zone — upper cab */}
+              <path d="M 43,80 Q 43,70 53,70 L 197,70 L 197,132 L 43,132 Z"
                 {...interactiveProps('documents', 'Documents réglementaires')} />
-
-              {/* ── Conducteur zone (mid cab) ─────────── */}
-              <rect x="53" y="125" width="117" height="40" rx="0"
+              {/* Conducteur zone — mid cab / door */}
+              <rect x="43" y="132" width="154" height="42"
                 {...interactiveProps('conducteur', 'Conducteur & sécurité')} />
-              {/* Door handle */}
-              <line x1="66" y1="143" x2="66" y2="160" stroke={c.borderStrong} strokeWidth="1.5" style={{ pointerEvents: 'none' }} />
-              <circle cx="70" cy="152" r="3" fill={c.borderStrong} style={{ pointerEvents: 'none' }} />
-
-              {/* ── EPI zone (lower cab) ─────────────── */}
-              <rect x="53" y="166" width="117" height="38" rx="0"
+              {/* EPI zone — lower cab */}
+              <rect x="43" y="174" width="154" height="39"
                 {...interactiveProps('epi', 'EPI obligatoires')} />
 
-              {/* Exhaust stack */}
-              <rect x="64" y="44" width="11" height="31" rx="4" fill={c.bgElevated} stroke={c.border} strokeWidth="1" style={{ pointerEvents: 'none' }} />
-              <ellipse cx="69" cy="42" rx="7" ry="3" fill={c.bgCard} stroke={c.border} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* ── CAB STRUCTURAL OUTLINE ───────────────────────────── */}
+              <path d="M 42,213 L 42,80 Q 42,70 52,70 L 198,70 L 198,213 Z"
+                fill="none" stroke={sk} strokeWidth="2" style={{ pointerEvents: 'none' }} />
 
-              {/* Fifth wheel coupling */}
-              <rect x="242" y="195" width="22" height="9" rx="2" fill={c.borderStrong} style={{ pointerEvents: 'none' }} />
+              {/* ── ROOF DEFLECTOR / FAIRING ─────────────────────────── */}
+              <path d="M 42,70 L 42,54 Q 42,48 52,48 L 198,48 L 198,70 Z"
+                fill={sf} stroke={sk} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              {/* Fairing ribs */}
+              {[80, 120, 160].map(x => (
+                <line key={x} x1={x} y1="48" x2={x} y2="70"
+                  stroke={sk} strokeWidth="0.6" opacity="0.5" style={{ pointerEvents: 'none' }} />
+              ))}
 
-              {/* ── Wheels (Pneumatiques) ─────────────── */}
-              {[170, 308, 340, 518, 550].map((cx, i) => (
+              {/* ── WINDSHIELD ───────────────────────────────────────── */}
+              <rect x="47" y="74" width="146" height="53" rx="4"
+                fill={gf} stroke={gb} strokeWidth="1.4" style={{ pointerEvents: 'none' }} />
+              {/* Center A-pillar */}
+              <line x1="120" y1="74" x2="120" y2="127"
+                stroke={gb} strokeWidth="1" opacity="0.7" style={{ pointerEvents: 'none' }} />
+              {/* Windshield corner cut (cab front face angle) */}
+              <line x1="47" y1="74" x2="47" y2="127"
+                stroke={sk} strokeWidth="1.5" style={{ pointerEvents: 'none' }} />
+              {/* Wipers */}
+              <line x1="58" y1="126" x2="108" y2="117"
+                stroke={sk} strokeWidth="1.3" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+              <line x1="182" y1="126" x2="132" y2="117"
+                stroke={sk} strokeWidth="1.3" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+
+              {/* Dashboard top strip */}
+              <rect x="43" y="127" width="155" height="5" rx="0"
+                fill={sf} stroke={sk} strokeWidth="0.6" style={{ pointerEvents: 'none' }} />
+
+              {/* ── DOOR WINDOWS ─────────────────────────────────────── */}
+              {/* Main door window */}
+              <rect x="52" y="137" width="80" height="32" rx="3"
+                fill={gf} stroke={gb} strokeWidth="1.3" style={{ pointerEvents: 'none' }} />
+              {/* Rear quarter window */}
+              <rect x="138" y="137" width="52" height="32" rx="3"
+                fill={gf} stroke={gb} strokeWidth="1.3" style={{ pointerEvents: 'none' }} />
+              {/* Window divider between door & quarter */}
+              <line x1="134" y1="137" x2="134" y2="169"
+                stroke={sk} strokeWidth="2.5" style={{ pointerEvents: 'none' }} />
+
+              {/* Door body panel line */}
+              <line x1="43" y1="174" x2="197" y2="174"
+                stroke={sk} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* Door crease line */}
+              <line x1="43" y1="169" x2="197" y2="169"
+                stroke={sk} strokeWidth="0.5" opacity="0.4" style={{ pointerEvents: 'none' }} />
+
+              {/* Door handle */}
+              <rect x="80" y="182" width="24" height="5" rx="2.5"
+                fill={sf} stroke={sk} strokeWidth="1.1" style={{ pointerEvents: 'none' }} />
+              <rect x="100" y="180" width="4" height="9" rx="2"
+                fill={sf} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+
+              {/* ── SIDE MIRROR ──────────────────────────────────────── */}
+              <line x1="43" y1="97" x2="20" y2="110"
+                stroke={sk} strokeWidth="1.8" style={{ pointerEvents: 'none' }} />
+              <rect x="10" y="106" width="20" height="13" rx="3"
+                fill={sf} stroke={sk} strokeWidth="1.1" style={{ pointerEvents: 'none' }} />
+              {/* Mirror glass */}
+              <rect x="12" y="108" width="16" height="9" rx="2"
+                fill={gf} stroke={gb} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+
+              {/* ── EXHAUST STACK ─────────────────────────────────────── */}
+              <rect x="174" y="26" width="11" height="44" rx="4"
+                fill={sf} stroke={sk} strokeWidth="1.1" style={{ pointerEvents: 'none' }} />
+              <rect x="172" y="34" width="15" height="6" rx="2"
+                fill={sf} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              <ellipse cx="179" cy="24" rx="8" ry="3.5"
+                fill={sf} stroke={sk} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* Exhaust plume (subtle) */}
+              <path d="M 177,22 Q 172,14 178,10 Q 184,4 180,0"
+                fill="none" stroke={sk} strokeWidth="0.8" strokeDasharray="2,3"
+                opacity="0.3" style={{ pointerEvents: 'none' }} />
+
+              {/* ── FRONT HEADLIGHTS & FOG LIGHTS ────────────────────── */}
+              {/* Main headlight (top) */}
+              <rect x="42" y="172" width="16" height="10" rx="2"
+                fill={isDark ? 'rgba(255,245,180,0.4)' : 'rgba(255,230,80,0.55)'}
+                stroke={isDark ? '#aa9900' : '#cc9900'} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* Headlight lens detail */}
+              <line x1="50" y1="172" x2="50" y2="182"
+                stroke={isDark ? '#ccaa00' : '#aa8800'} strokeWidth="0.5" opacity="0.6" style={{ pointerEvents: 'none' }} />
+              {/* Fog light (below) */}
+              <rect x="42" y="185" width="12" height="8" rx="2"
+                fill={isDark ? 'rgba(255,200,100,0.3)' : 'rgba(255,210,80,0.45)'}
+                stroke={isDark ? '#886600' : '#aa8800'} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              {/* DRL / indicator strip */}
+              <rect x="42" y="168" width="16" height="3" rx="1"
+                fill={isDark ? 'rgba(180,240,255,0.4)' : 'rgba(180,230,255,0.7)'}
+                stroke={isDark ? '#4499cc' : '#2266aa'} strokeWidth="0.6" style={{ pointerEvents: 'none' }} />
+
+              {/* ── FRONT BUMPER & STEPS ─────────────────────────────── */}
+              <rect x="36" y="205" width="12" height="8" rx="1"
+                fill={sf} stroke={sk} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+              <rect x="34" y="195" width="10" height="8" rx="1"
+                fill={sf} stroke={sk} strokeWidth="0.9" style={{ pointerEvents: 'none' }} />
+              <rect x="34" y="186" width="8" height="7" rx="1"
+                fill={sf} stroke={sk} strokeWidth="0.7" style={{ pointerEvents: 'none' }} />
+
+              {/* ── MUD FLAPS ────────────────────────────────────────── */}
+              <rect x="117" y="225" width="6" height="18" rx="1"
+                fill={sf} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              <rect x="388" y="225" width="6" height="18" rx="1"
+                fill={sf} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+              <rect x="588" y="225" width="6" height="18" rx="1"
+                fill={sf} stroke={sk} strokeWidth="0.8" style={{ pointerEvents: 'none' }} />
+
+              {/* ── WHEELS (Pneumatiques) ─────────────────────────────── */}
+              {[148, 415, 450, 614, 649].map((wx, i) => (
                 <g key={i}
                   style={{ cursor: 'pointer' }}
                   onClick={() => setActiveZone(activeZone === 'pneus' ? null : 'pneus')}
                   onMouseEnter={() => !activeZone && setActiveZone('pneus')}
                   onMouseLeave={() => !activeZone && setActiveZone(null)}>
-                  <circle cx={cx} cy="236" r="30"
+                  {/* Tyre outer */}
+                  <circle cx={wx} cy="244" r="28"
                     fill={zoneColor('Pneumatiques', isActive('pneus'))}
                     stroke={zoneBorder('Pneumatiques')}
                     strokeWidth={isActive('pneus') ? 2.5 : 1.5} />
-                  <circle cx={cx} cy="236" r="19" fill={c.bgCard} stroke={zoneBorder('Pneumatiques')} strokeWidth="1" opacity="0.8" />
-                  {[0,60,120,180,240,300].map(deg => (
+                  {/* Tyre tread band */}
+                  <circle cx={wx} cy="244" r="25"
+                    fill="none" stroke={sk} strokeWidth="1" opacity="0.35" style={{ pointerEvents: 'none' }} />
+                  {/* Rim dish */}
+                  <circle cx={wx} cy="244" r="18"
+                    fill={isDark ? '#0d1e36' : '#bfd0e4'}
+                    stroke={zoneBorder('Pneumatiques')} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+                  {/* 7 spokes */}
+                  {[0, 51.4, 102.9, 154.3, 205.7, 257.1, 308.6].map(deg => (
                     <line key={deg}
-                      x1={cx + Math.cos(deg * Math.PI / 180) * 7}
-                      y1={236 + Math.sin(deg * Math.PI / 180) * 7}
-                      x2={cx + Math.cos(deg * Math.PI / 180) * 17}
-                      y2={236 + Math.sin(deg * Math.PI / 180) * 17}
-                      stroke={c.borderStrong} strokeWidth="1.5" />
+                      x1={wx + Math.cos(deg * Math.PI / 180) * 6}
+                      y1={244 + Math.sin(deg * Math.PI / 180) * 6}
+                      x2={wx + Math.cos(deg * Math.PI / 180) * 16}
+                      y2={244 + Math.sin(deg * Math.PI / 180) * 16}
+                      stroke={sk} strokeWidth="2.2" strokeLinecap="round"
+                      style={{ pointerEvents: 'none' }} />
                   ))}
-                  <circle cx={cx} cy="236" r="5" fill={c.bgElevated} />
+                  {/* Hub ring */}
+                  <circle cx={wx} cy="244" r="6.5"
+                    fill={isDark ? '#1a3355' : '#a0b8cc'} stroke={sk} strokeWidth="1"
+                    style={{ pointerEvents: 'none' }} />
+                  {/* Hub centre bolt */}
+                  <circle cx={wx} cy="244" r="2.5"
+                    fill={sk} style={{ pointerEvents: 'none' }} />
                 </g>
               ))}
 
-              {/* ── Zone labels ──────────────────────────── */}
-              <text x="108" y="104" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Documents</text>
-              <text x="108" y="149" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Conducteur</text>
-              <text x="108" y="188" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>EPI</text>
-              <text x="208" y="167" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Tracteur</text>
-              <text x="432" y="100" textAnchor="middle" fontSize="11" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Benne / Remorque</text>
-              <text x="170" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AV</text>
-              <text x="324" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AR</text>
-              <text x="534" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>REM</text>
-              <text x="324" y="213" textAnchor="middle" fontSize="7.5" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Environnement & Urgence</text>
+              {/* ── ZONE LABELS ──────────────────────────────────────── */}
+              <text x="117" y="104" textAnchor="middle" fontSize="8" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Documents</text>
+              <text x="117" y="156" textAnchor="middle" fontSize="8" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Conducteur</text>
+              <text x="117" y="194" textAnchor="middle" fontSize="8" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>EPI</text>
+              <text x="235" y="166" textAnchor="middle" fontSize="7.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Tracteur</text>
+              <text x="515" y="130" textAnchor="middle" fontSize="11" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Benne / Remorque</text>
+              <text x="148" y="276" textAnchor="middle" fontSize="7" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AV</text>
+              <text x="432" y="276" textAnchor="middle" fontSize="7" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AR</text>
+              <text x="631" y="276" textAnchor="middle" fontSize="7" fill={c.textMuted} style={{ pointerEvents: 'none' }}>REM</text>
+              <text x="368" y="221" textAnchor="middle" fontSize="7.5" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Environnement & Urgence</text>
 
-              {/* ── NC badge circles ─────────────────────── */}
+              {/* ── NC BADGE CIRCLES ─────────────────────────────────── */}
               {TRUCK_ZONES.map(zone => {
                 const s = getStats(zone.cat);
                 if (s.nonConforme === 0) return null;
@@ -1179,22 +1353,15 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
                 );
               })}
 
-              {/* ── Conformity dot on each zone ──────────── */}
+              {/* ── CONFORMITY CHECK DOTS ────────────────────────────── */}
               {TRUCK_ZONES.filter(z => z.id !== 'pneus').map(zone => {
                 const s = getStats(zone.cat);
                 const filled = s.conforme + s.nonConforme + s.na;
                 if (filled === 0 || s.nonConforme > 0) return null;
-                const dotPos: Record<string, { x: number; y: number }> = {
-                  documents: { x: 166, y: 84 }, conducteur: { x: 166, y: 140 },
-                  epi: { x: 166, y: 178 }, tracteur: { x: 232, y: 134 },
-                  benne: { x: 606, y: 68 }, environnement: { x: 600, y: 210 },
-                };
-                const pos = dotPos[zone.id];
-                if (!pos) return null;
                 return (
                   <g key={zone.id} style={{ pointerEvents: 'none' }}>
-                    <circle cx={pos.x} cy={pos.y} r="8" fill="#00e676" />
-                    <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize="10" fill="#020817">✓</text>
+                    <circle cx={zone.ncPos.x} cy={zone.ncPos.y} r="9" fill="#00e676" />
+                    <text x={zone.ncPos.x} y={zone.ncPos.y + 4} textAnchor="middle" fontSize="10" fill="#020817">✓</text>
                   </g>
                 );
               })}
