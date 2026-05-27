@@ -844,16 +844,6 @@ export default function Securite() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-              <div className="glass-card p-4">
-                <h3 className="text-xs font-semibold mb-1" style={{ color: c.textMuted }}>RADAR CONFORMITÉ</h3>
-                <ResponsiveContainer width="100%" height={160}>
-                  <RadarChart data={radarData} margin={{ top: 0, right: 15, left: 15, bottom: 0 }}>
-                    <PolarGrid stroke={c.gridStroke} />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: c.textMuted, fontSize: 9 }} />
-                    <Radar dataKey="taux" stroke="#00d4ff" fill="#00d4ff" fillOpacity={0.15} strokeWidth={2} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
             </div>
           </div>
 
