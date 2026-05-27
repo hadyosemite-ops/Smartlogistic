@@ -3,7 +3,7 @@ import {
   ShieldCheck, TrendingDown, TrendingUp, Bell, Eye, X, Activity,
   ClipboardCheck, Plus, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle,
-  BarChart3, Calendar, Filter, ShieldAlert, Leaf,
+  BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine,
 } from 'lucide-react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -562,6 +562,7 @@ export default function Securite() {
   const [actionFilter, setActionFilter] = useState<ActionStatut | 'all'>('all');
   const [prioriteFilter, setPrioriteFilter] = useState<ActionPriorite | 'all'>('all');
   const [selectedInspId, setSelectedInspId] = useState<string | null>(null);
+  const [diagramInsp, setDiagramInsp]       = useState<Inspection | null>(null);
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
@@ -922,7 +923,13 @@ export default function Securite() {
                           </div>
                         </div>
                         {insp.statut === 'conforme' ? <CheckCircle2 size={14} style={{ color: '#00e676' }} /> : <XCircle size={14} style={{ color: '#ff4444' }} />}
-                        <Eye size={12} style={{ color: c.textFaint }} />
+                        <button
+                          className="p-1 rounded-lg transition-all"
+                          title="Vue schéma camion"
+                          style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}` }}
+                          onClick={e => { e.stopPropagation(); setDiagramInsp(insp); }}>
+                          <ScanLine size={12} style={{ color: c.accent }} />
+                        </button>
                       </div>
                       {isSelected && selectedInsp && (
                         <div className="mt-3 space-y-1.5 pl-1">
@@ -954,6 +961,370 @@ export default function Securite() {
 
       {selectedDriver && <DriverPanel driver={selectedDriver} onClose={() => setSelectedDriver(null)} />}
       {showForm && <InspectionForm onClose={() => setShowForm(false)} onSubmit={handleInspSubmit} />}
+      {diagramInsp && <TruckDiagramModal inspection={diagramInsp} onClose={() => setDiagramInsp(null)} />}
+    </div>
+  );
+}
+
+// ─── Truck Diagram Modal ──────────────────────────────────────────────────────
+
+const TRUCK_ZONES = [
+  { id: 'documents',    cat: 'Documents réglementaires', label: 'Documents',      ncPos: { x: 166, y: 84  } },
+  { id: 'conducteur',   cat: 'Conducteur & sécurité',   label: 'Conducteur',     ncPos: { x: 166, y: 140 } },
+  { id: 'epi',          cat: 'EPI obligatoires',        label: 'EPI',            ncPos: { x: 166, y: 178 } },
+  { id: 'tracteur',     cat: 'Tracteur',                label: 'Tracteur',       ncPos: { x: 232, y: 134 } },
+  { id: 'benne',        cat: 'Benne / Remorque',        label: 'Benne / Rem.',   ncPos: { x: 606, y: 68  } },
+  { id: 'pneus',        cat: 'Pneumatiques',            label: 'Pneumatiques',   ncPos: { x: 188, y: 218 } },
+  { id: 'environnement',cat: 'Environnement & urgence', label: 'Environ.',       ncPos: { x: 600, y: 210 } },
+];
+
+function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; onClose: () => void }) {
+  const { c } = useTheme();
+  const [activeZone, setActiveZone] = useState<string | null>(null);
+
+  const vehicle = vehicles.find(v => v.id === inspection.vehiculeId);
+  const driver  = drivers.find(d => d.id === inspection.chauffeurId);
+
+  const getStats = (cat: string) => {
+    const items = checklistItems.filter(i => i.categorie === cat);
+    const nc: typeof items = [];
+    let conforme = 0, na = 0;
+    items.forEach(item => {
+      const r = inspection.resultats[item.id];
+      if (r === 'conforme') conforme++;
+      else if (r === 'non_conforme') nc.push(item);
+      else if (r === 'na') na++;
+    });
+    return { conforme, nonConforme: nc.length, na, nc_items: nc, total: items.length };
+  };
+
+  const zoneColor = (cat: string, hover = false) => {
+    const s = getStats(cat);
+    const filled = s.conforme + s.nonConforme + s.na;
+    const a = hover ? 0.55 : 0.32;
+    if (filled === 0) return `rgba(120,140,170,0.18)`;
+    if (s.nonConforme > 0) return `rgba(255,68,68,${a})`;
+    return `rgba(0,230,118,${a})`;
+  };
+
+  const zoneBorder = (cat: string) => {
+    const s = getStats(cat);
+    const filled = s.conforme + s.nonConforme + s.na;
+    if (filled === 0) return '#2a4060';
+    if (s.nonConforme > 0) return '#ff4444';
+    return '#00e676';
+  };
+
+  const isActive = (id: string) => activeZone === id;
+
+  const interactiveProps = (id: string, cat: string) => ({
+    style: { cursor: 'pointer' } as React.CSSProperties,
+    onClick: () => setActiveZone(activeZone === id ? null : id),
+    onMouseEnter: () => !activeZone && setActiveZone(id),
+    onMouseLeave: () => !activeZone && setActiveZone(null),
+    fill: zoneColor(cat, isActive(id)),
+    stroke: zoneBorder(cat),
+    strokeWidth: isActive(id) ? 2.5 : 1.5,
+  });
+
+  const activeData = activeZone ? TRUCK_ZONES.find(z => z.id === activeZone) : null;
+  const activeStats = activeData ? getStats(activeData.cat) : null;
+  const activeItems = activeData ? checklistItems.filter(i => i.categorie === activeData.cat) : [];
+
+  const wheelProps = (cx: number) => ({
+    ...interactiveProps('pneus', 'Pneumatiques'),
+    onClick: () => setActiveZone(activeZone === 'pneus' ? null : 'pneus'),
+  });
+
+  const tScore = inspection.tauxConformite;
+  const tColor = tScore >= 95 ? '#00e676' : tScore >= 80 ? '#ffb300' : '#ff4444';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)', padding: '16px' }}
+      onClick={onClose}>
+      <div className="glass-card w-full max-w-5xl flex flex-col overflow-hidden"
+        style={{ border: `1px solid ${c.borderStrong}`, maxHeight: '92vh' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-3 flex-shrink-0"
+          style={{ borderBottom: `1px solid ${c.border}` }}>
+          <div>
+            <div className="font-semibold" style={{ color: c.textPrimary }}>
+              Rapport d'inspection — {vehicle?.immatriculation}
+              {vehicle && <span className="font-normal ml-2" style={{ color: c.textMuted }}>{vehicle.marque} {vehicle.modele}</span>}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>
+              {driver ? `${driver.prenom} ${driver.nom}` : '—'} · {inspection.date} · {inspection.inspecteur}
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="text-center">
+              <div className="text-3xl font-black" style={{ color: tColor }}>{tScore}%</div>
+              <div className="text-xs" style={{ color: c.textMuted }}>Conformité</div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: c.textMuted }}><X size={18} /></button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* SVG Truck */}
+          <div className="flex-1 flex flex-col justify-center px-4 py-4" style={{ minWidth: 0 }}>
+            <div className="text-xs font-semibold text-center mb-2" style={{ color: c.textFaint }}>
+              Cliquez sur une zone pour voir les détails
+            </div>
+            <svg viewBox="0 0 648 268" className="w-full" style={{ maxHeight: 320 }}>
+
+              {/* ── Benne / Remorque ─────────────────────── */}
+              <rect x="246" y="56" width="376" height="149" rx="6"
+                {...interactiveProps('benne', 'Benne / Remorque')} />
+              {/* Benne inner lines */}
+              <line x1="247" y1="113" x2="621" y2="113" stroke={c.borderFaint} strokeWidth="0.6" strokeDasharray="8,12" style={{ pointerEvents: 'none' }} />
+              <line x1="247" y1="152" x2="621" y2="152" stroke={c.borderFaint} strokeWidth="0.6" strokeDasharray="8,12" style={{ pointerEvents: 'none' }} />
+              {/* Benne top angle detail */}
+              <polygon points="246,56 296,38 621,38 621,56" fill={zoneColor('Benne / Remorque', isActive('benne'))} stroke={zoneBorder('Benne / Remorque')} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              {/* Rear door lines */}
+              <line x1="618" y1="56" x2="618" y2="205" stroke={zoneBorder('Benne / Remorque')} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+
+              {/* ── Chassis ──────────────────────────────── */}
+              <rect x="52" y="204" width="568" height="14" rx="2"
+                fill={zoneColor('Environnement & urgence', isActive('environnement'))}
+                stroke={zoneBorder('Environnement & urgence')}
+                strokeWidth={isActive('environnement') ? 2 : 1}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setActiveZone(activeZone === 'environnement' ? null : 'environnement')}
+                onMouseEnter={() => !activeZone && setActiveZone('environnement')}
+                onMouseLeave={() => !activeZone && setActiveZone(null)}
+              />
+
+              {/* ── Engine Hood (Tracteur) ────────────────── */}
+              <rect x="172" y="124" width="72" height="80" rx="3"
+                {...interactiveProps('tracteur', 'Tracteur')} />
+              {/* Hood detail lines */}
+              <line x1="172" y1="148" x2="244" y2="148" stroke={zoneBorder('Tracteur')} strokeWidth="0.6" strokeDasharray="4,6" style={{ pointerEvents: 'none' }} />
+              <line x1="172" y1="168" x2="244" y2="168" strokeDasharray="4,6" stroke={zoneBorder('Tracteur')} strokeWidth="0.6" style={{ pointerEvents: 'none' }} />
+
+              {/* ── Cab structural outline (drawn over zones) ── */}
+              <path d="M52,204 L52,92 Q54,76 78,74 L152,74 Q168,74 172,86 L172,124 L172,204 Z"
+                fill="none" stroke={c.borderStrong} strokeWidth="2" style={{ pointerEvents: 'none' }} />
+              {/* Windshield */}
+              <polygon points="152,74 170,86 172,86 172,112 164,124 172,124 172,92 168,84 152,75"
+                fill={`${c.bgCard}cc`} stroke={c.borderStrong} strokeWidth="1.2" style={{ pointerEvents: 'none' }} />
+
+              {/* ── Documents zone (upper cab) ──────────── */}
+              <path d="M53,93 L53,124 L170,124 L170,112 L172,112 L172,86 Q168,75 152,75 L78,75 Q55,75 53,93 Z"
+                {...interactiveProps('documents', 'Documents réglementaires')} />
+
+              {/* ── Conducteur zone (mid cab) ─────────── */}
+              <rect x="53" y="125" width="117" height="40" rx="0"
+                {...interactiveProps('conducteur', 'Conducteur & sécurité')} />
+              {/* Door handle */}
+              <line x1="66" y1="143" x2="66" y2="160" stroke={c.borderStrong} strokeWidth="1.5" style={{ pointerEvents: 'none' }} />
+              <circle cx="70" cy="152" r="3" fill={c.borderStrong} style={{ pointerEvents: 'none' }} />
+
+              {/* ── EPI zone (lower cab) ─────────────── */}
+              <rect x="53" y="166" width="117" height="38" rx="0"
+                {...interactiveProps('epi', 'EPI obligatoires')} />
+
+              {/* Exhaust stack */}
+              <rect x="64" y="44" width="11" height="31" rx="4" fill={c.bgElevated} stroke={c.border} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+              <ellipse cx="69" cy="42" rx="7" ry="3" fill={c.bgCard} stroke={c.border} strokeWidth="1" style={{ pointerEvents: 'none' }} />
+
+              {/* Fifth wheel coupling */}
+              <rect x="242" y="195" width="22" height="9" rx="2" fill={c.borderStrong} style={{ pointerEvents: 'none' }} />
+
+              {/* ── Wheels (Pneumatiques) ─────────────── */}
+              {[170, 308, 340, 518, 550].map((cx, i) => (
+                <g key={i}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setActiveZone(activeZone === 'pneus' ? null : 'pneus')}
+                  onMouseEnter={() => !activeZone && setActiveZone('pneus')}
+                  onMouseLeave={() => !activeZone && setActiveZone(null)}>
+                  <circle cx={cx} cy="236" r="30"
+                    fill={zoneColor('Pneumatiques', isActive('pneus'))}
+                    stroke={zoneBorder('Pneumatiques')}
+                    strokeWidth={isActive('pneus') ? 2.5 : 1.5} />
+                  <circle cx={cx} cy="236" r="19" fill={c.bgCard} stroke={zoneBorder('Pneumatiques')} strokeWidth="1" opacity="0.8" />
+                  {[0,60,120,180,240,300].map(deg => (
+                    <line key={deg}
+                      x1={cx + Math.cos(deg * Math.PI / 180) * 7}
+                      y1={236 + Math.sin(deg * Math.PI / 180) * 7}
+                      x2={cx + Math.cos(deg * Math.PI / 180) * 17}
+                      y2={236 + Math.sin(deg * Math.PI / 180) * 17}
+                      stroke={c.borderStrong} strokeWidth="1.5" />
+                  ))}
+                  <circle cx={cx} cy="236" r="5" fill={c.bgElevated} />
+                </g>
+              ))}
+
+              {/* ── Zone labels ──────────────────────────── */}
+              <text x="108" y="104" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Documents</text>
+              <text x="108" y="149" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Conducteur</text>
+              <text x="108" y="188" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>EPI</text>
+              <text x="208" y="167" textAnchor="middle" fontSize="8.5" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Tracteur</text>
+              <text x="432" y="100" textAnchor="middle" fontSize="11" fontWeight="700" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Benne / Remorque</text>
+              <text x="170" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AV</text>
+              <text x="324" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>AR</text>
+              <text x="534" y="264" textAnchor="middle" fontSize="7.5" fill={c.textMuted} style={{ pointerEvents: 'none' }}>REM</text>
+              <text x="324" y="213" textAnchor="middle" fontSize="7.5" fill={c.textSecondary} style={{ pointerEvents: 'none' }}>Environnement & Urgence</text>
+
+              {/* ── NC badge circles ─────────────────────── */}
+              {TRUCK_ZONES.map(zone => {
+                const s = getStats(zone.cat);
+                if (s.nonConforme === 0) return null;
+                return (
+                  <g key={zone.id} style={{ pointerEvents: 'none' }}>
+                    <circle cx={zone.ncPos.x} cy={zone.ncPos.y} r="10" fill="#ff4444" />
+                    <text x={zone.ncPos.x} y={zone.ncPos.y + 4} textAnchor="middle" fontSize="9" fontWeight="bold" fill="white">{s.nonConforme}</text>
+                  </g>
+                );
+              })}
+
+              {/* ── Conformity dot on each zone ──────────── */}
+              {TRUCK_ZONES.filter(z => z.id !== 'pneus').map(zone => {
+                const s = getStats(zone.cat);
+                const filled = s.conforme + s.nonConforme + s.na;
+                if (filled === 0 || s.nonConforme > 0) return null;
+                const dotPos: Record<string, { x: number; y: number }> = {
+                  documents: { x: 166, y: 84 }, conducteur: { x: 166, y: 140 },
+                  epi: { x: 166, y: 178 }, tracteur: { x: 232, y: 134 },
+                  benne: { x: 606, y: 68 }, environnement: { x: 600, y: 210 },
+                };
+                const pos = dotPos[zone.id];
+                if (!pos) return null;
+                return (
+                  <g key={zone.id} style={{ pointerEvents: 'none' }}>
+                    <circle cx={pos.x} cy={pos.y} r="8" fill="#00e676" />
+                    <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize="10" fill="#020817">✓</text>
+                  </g>
+                );
+              })}
+
+            </svg>
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-6 mt-2">
+              {[
+                { color: '#00e676', label: 'Conforme' },
+                { color: '#ff4444', label: 'Non-conforme' },
+                { color: 'rgba(120,140,170,0.3)', label: 'Non renseigné', border: '#2a4060' },
+              ].map(({ color, label, border }) => (
+                <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: c.textSecondary }}>
+                  <div className="w-3 h-3 rounded-sm" style={{ background: color, border: `1px solid ${border || color}` }} />
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Details Panel */}
+          <div className="w-72 flex-shrink-0 overflow-y-auto flex flex-col"
+            style={{ borderLeft: `1px solid ${c.border}` }}>
+
+            {activeData && activeStats ? (
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: activeStats.nonConforme > 0 ? '#ff4444' : '#00e676' }} />
+                  <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>{activeData.label}</span>
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded-full"
+                    style={{ background: activeStats.nonConforme > 0 ? 'rgba(255,68,68,0.12)' : 'rgba(0,230,118,0.1)', color: activeStats.nonConforme > 0 ? '#ff4444' : '#00e676' }}>
+                    {activeStats.conforme}/{activeStats.total} OK
+                  </span>
+                </div>
+
+                {/* Progress */}
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs mb-1.5" style={{ color: c.textMuted }}>
+                    <span>Taux de conformité</span>
+                    <span style={{ color: activeStats.nonConforme > 0 ? '#ff4444' : '#00e676' }}>
+                      {activeStats.total > 0 ? Math.round((activeStats.conforme / (activeStats.total - activeStats.na || 1)) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full" style={{ background: c.border }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${activeStats.total > 0 ? (activeStats.conforme / (activeStats.total - activeStats.na || 1)) * 100 : 0}%`, background: activeStats.nonConforme > 0 ? '#ff4444' : '#00e676' }} />
+                  </div>
+                  <div className="flex gap-3 mt-2 text-xs" style={{ color: c.textMuted }}>
+                    <span><span style={{ color: '#00e676' }}>●</span> {activeStats.conforme} conform.</span>
+                    {activeStats.nonConforme > 0 && <span><span style={{ color: '#ff4444' }}>●</span> {activeStats.nonConforme} NC</span>}
+                    {activeStats.na > 0 && <span><span style={{ color: c.textFaint }}>●</span> {activeStats.na} N/A</span>}
+                  </div>
+                </div>
+
+                {/* NC items */}
+                {activeStats.nc_items.length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-xs font-semibold mb-2" style={{ color: '#ff4444' }}>Non-conformités</div>
+                    <div className="space-y-2">
+                      {activeStats.nc_items.map(item => (
+                        <div key={item.id} className="px-2.5 py-2 rounded-lg"
+                          style={{ background: 'rgba(255,68,68,0.07)', border: '1px solid rgba(255,68,68,0.2)' }}>
+                          <div className="flex items-start gap-1.5">
+                            {item.critique && <span className="text-xs px-1 rounded flex-shrink-0" style={{ background: 'rgba(255,68,68,0.2)', color: '#ff4444' }}>CRIT</span>}
+                            <span className="text-xs" style={{ color: '#ff9999' }}>{item.point}</span>
+                          </div>
+                          {inspection.commentaires[item.id] && (
+                            <div className="text-xs mt-1 italic" style={{ color: '#ff7777' }}>→ {inspection.commentaires[item.id]}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All items list */}
+                <div>
+                  <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>Tous les points</div>
+                  <div className="space-y-1">
+                    {activeItems.map(item => {
+                      const r = inspection.resultats[item.id];
+                      const color = r === 'conforme' ? '#00e676' : r === 'non_conforme' ? '#ff4444' : c.textFaint;
+                      const icon = r === 'conforme' ? '✓' : r === 'non_conforme' ? '✗' : '—';
+                      return (
+                        <div key={item.id} className="flex items-start gap-2 text-xs py-1"
+                          style={{ borderBottom: `1px solid ${c.borderFaint}`, color: c.textSecondary }}>
+                          <span className="font-bold flex-shrink-0" style={{ color }}>{icon}</span>
+                          <span className="leading-tight">{item.point}</span>
+                          {item.critique && <span className="flex-shrink-0 text-xs" style={{ color: '#ff4444' }}>⚠</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full py-16 px-6 text-center">
+                <ScanLine size={40} style={{ color: c.textFaint, marginBottom: 12 }} />
+                <div className="text-sm font-medium mb-1" style={{ color: c.textMuted }}>Sélectionnez une zone</div>
+                <div className="text-xs" style={{ color: c.textFaint }}>Cliquez sur une partie du camion pour voir le détail des points de contrôle</div>
+                <div className="mt-6 space-y-2 w-full">
+                  {TRUCK_ZONES.map(zone => {
+                    const s = getStats(zone.cat);
+                    const filled = s.conforme + s.nonConforme + s.na;
+                    return (
+                      <button key={zone.id}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all"
+                        style={{ background: c.bgElevated, border: `1px solid ${filled === 0 ? c.border : s.nonConforme > 0 ? 'rgba(255,68,68,0.3)' : 'rgba(0,230,118,0.25)'}` }}
+                        onClick={() => setActiveZone(zone.id)}>
+                        <div className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: filled === 0 ? c.textFaint : s.nonConforme > 0 ? '#ff4444' : '#00e676' }} />
+                        <span style={{ color: c.textSecondary }}>{zone.label}</span>
+                        <span className="ml-auto font-semibold"
+                          style={{ color: filled === 0 ? c.textFaint : s.nonConforme > 0 ? '#ff4444' : '#00e676' }}>
+                          {filled === 0 ? '—' : s.nonConforme > 0 ? `${s.nonConforme} NC` : '✓'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
