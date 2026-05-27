@@ -42,9 +42,10 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Alerts badge */}
-      <div className="mx-4 my-3 flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer"
-        style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)' }}>
+      {/* Alerts badge → Sécurité */}
+      <NavLink to="/securite"
+        className="mx-4 my-3 flex items-center justify-between px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
+        style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)', textDecoration: 'none' }}>
         <div className="flex items-center gap-2">
           <Bell size={14} style={{ color: '#ff4444' }} />
           <span className="text-xs font-medium" style={{ color: '#ff8888' }}>Alertes actives</span>
@@ -52,7 +53,7 @@ export default function Sidebar() {
         <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#ff4444', color: '#fff' }}>
           {unreadCount}
         </span>
-      </div>
+      </NavLink>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">

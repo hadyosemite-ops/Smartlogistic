@@ -13,7 +13,7 @@ import Badge from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
 import {
   vehicles, interventions, maintenanceAlerts, maintenanceCostByMonth,
-  type InterventionType
+  type InterventionType, type Intervention,
 } from '../data/mock';
 
 const typeLabel: Record<InterventionType, string> = {
@@ -192,10 +192,190 @@ function VehicleDetail({ vehiculeId, onClose }: VehicleDetailProps) {
   );
 }
 
+// ─── Formulaire Nouvelle Intervention ────────────────────────────────────────
+
+interface IntervFormData {
+  vehiculeId: string; type: InterventionType; libelle: string;
+  date: string; kmIntervention: string;
+  coutPieces: string; coutMainOeuvre: string; garage: string; notes: string;
+}
+
+const emptyInterv: IntervFormData = {
+  vehiculeId: '', type: 'preventive', libelle: '',
+  date: '', kmIntervention: '',
+  coutPieces: '', coutMainOeuvre: '', garage: '', notes: '',
+};
+
+function NouvelleInterventionModal({ onClose, onSave }: {
+  onClose: () => void;
+  onSave: (i: Intervention) => void;
+}) {
+  const { c } = useTheme();
+  const [form, setForm] = useState<IntervFormData>(emptyInterv);
+  const [errors, setErrors] = useState<Partial<Record<keyof IntervFormData, string>>>({});
+
+  const set = (k: keyof IntervFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  const validate = () => {
+    const e: typeof errors = {};
+    if (!form.vehiculeId)                      e.vehiculeId = 'Requis';
+    if (!form.libelle.trim())                  e.libelle = 'Requis';
+    if (!form.date)                            e.date = 'Requis';
+    if (!form.garage.trim())                   e.garage = 'Requis';
+    if (!form.kmIntervention || isNaN(Number(form.kmIntervention))) e.kmIntervention = 'Nombre requis';
+    if (form.coutPieces && isNaN(Number(form.coutPieces)))         e.coutPieces = 'Nombre invalide';
+    if (form.coutMainOeuvre && isNaN(Number(form.coutMainOeuvre))) e.coutMainOeuvre = 'Nombre invalide';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+    const newInterv: Intervention = {
+      id: `i${Date.now()}`,
+      vehiculeId: form.vehiculeId,
+      type: form.type,
+      libelle: form.libelle,
+      date: form.date,
+      kmIntervention: Number(form.kmIntervention),
+      coutPieces: Number(form.coutPieces) || 0,
+      coutMainOeuvre: Number(form.coutMainOeuvre) || 0,
+      garage: form.garage,
+      status: 'planifiee',
+      notes: form.notes || undefined,
+    };
+    onSave(newInterv);
+    onClose();
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: c.bgInput, border: `1px solid ${c.border}`,
+    color: c.textSecondary, borderRadius: 8, padding: '7px 10px',
+    fontSize: 12, width: '100%', outline: 'none',
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: c.textMuted, marginBottom: 4, display: 'block' };
+  const errStyle: React.CSSProperties   = { fontSize: 10, color: '#ff4444', marginTop: 2 };
+
+  const typeOptions: { value: InterventionType; label: string }[] = [
+    { value: 'preventive',  label: 'Préventive' },
+    { value: 'corrective',  label: 'Corrective' },
+    { value: 'ct',          label: 'Contrôle Technique' },
+    { value: 'pneus',       label: 'Pneumatiques' },
+    { value: 'carrosserie', label: 'Carrosserie' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}>
+      <div className="glass-card w-full max-w-2xl mx-4 flex flex-col overflow-hidden"
+        style={{ border: `1px solid ${c.borderStrong}`, maxHeight: '90vh' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{ borderBottom: `1px solid ${c.border}` }}>
+          <div>
+            <div className="font-semibold" style={{ color: c.textPrimary }}>Nouvelle intervention</div>
+            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>Planifier une intervention de maintenance</div>
+          </div>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label style={labelStyle}>Véhicule *</label>
+              <select value={form.vehiculeId} onChange={set('vehiculeId')} style={inputStyle}>
+                <option value="">— Sélectionner —</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>{v.immatriculation} — {v.marque} {v.modele}</option>
+                ))}
+              </select>
+              {errors.vehiculeId && <div style={errStyle}>{errors.vehiculeId}</div>}
+            </div>
+            <div>
+              <label style={labelStyle}>Type d'intervention *</label>
+              <select value={form.type} onChange={set('type')} style={inputStyle}>
+                {typeOptions.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Libellé / Description *</label>
+            <input value={form.libelle} onChange={set('libelle')} style={inputStyle} placeholder="ex : Vidange + filtre huile + filtre air" />
+            {errors.libelle && <div style={errStyle}>{errors.libelle}</div>}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label style={labelStyle}>Date *</label>
+              <input type="date" value={form.date} onChange={set('date')} style={inputStyle} />
+              {errors.date && <div style={errStyle}>{errors.date}</div>}
+            </div>
+            <div>
+              <label style={labelStyle}>Kilométrage *</label>
+              <input type="number" value={form.kmIntervention} onChange={set('kmIntervention')} style={inputStyle} placeholder="km actuel" min="0" />
+              {errors.kmIntervention && <div style={errStyle}>{errors.kmIntervention}</div>}
+            </div>
+            <div>
+              <label style={labelStyle}>Garage *</label>
+              <input value={form.garage} onChange={set('garage')} style={inputStyle} placeholder="Nom du garage" />
+              {errors.garage && <div style={errStyle}>{errors.garage}</div>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label style={labelStyle}>Coût pièces (MAD)</label>
+              <input type="number" value={form.coutPieces} onChange={set('coutPieces')} style={inputStyle} placeholder="0" min="0" />
+              {errors.coutPieces && <div style={errStyle}>{errors.coutPieces}</div>}
+            </div>
+            <div>
+              <label style={labelStyle}>Coût main d'œuvre (MAD)</label>
+              <input type="number" value={form.coutMainOeuvre} onChange={set('coutMainOeuvre')} style={inputStyle} placeholder="0" min="0" />
+              {errors.coutMainOeuvre && <div style={errStyle}>{errors.coutMainOeuvre}</div>}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Notes</label>
+            <input value={form.notes} onChange={set('notes')} style={inputStyle} placeholder="Observations, pièces à commander..." />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 flex-shrink-0"
+          style={{ borderTop: `1px solid ${c.border}` }}>
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>
+            Annuler
+          </button>
+          <button onClick={handleSubmit}
+            className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}`, color: c.accent }}>
+            Planifier l'intervention
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+
 export default function Maintenance() {
   const { c } = useTheme();
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'flotte' | 'interventions' | 'couts'>('flotte');
+  const [selectedVehicle, setSelectedVehicle]         = useState<string | null>(null);
+  const [activeTab, setActiveTab]                     = useState<'flotte' | 'interventions' | 'couts'>('flotte');
+  const [showForm, setShowForm]                       = useState(false);
+  const [localInterventions, setLocalInterventions]   = useState<Intervention[]>([...interventions]);
 
   const totalCostMois = maintenanceCostByMonth[maintenanceCostByMonth.length - 1].total;
   const alertsCritiques = maintenanceAlerts.filter(a => a.urgence === 'critique').length;
@@ -209,7 +389,7 @@ export default function Maintenance() {
     { name: 'Pneumatiques', value: maintenanceCostByMonth.reduce((s, m) => s + m.pneus, 0) },
   ];
 
-  const pendingInterventions = interventions.filter(i => i.status === 'planifiee' || i.status === 'en_cours');
+  const pendingInterventions = localInterventions.filter(i => i.status === 'planifiee' || i.status === 'en_cours');
 
   const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
 
@@ -353,7 +533,8 @@ export default function Maintenance() {
           <div className="glass-card overflow-hidden">
             <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
               <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Toutes les interventions</span>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+              <button onClick={() => setShowForm(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}`, color: c.accent }}>
                 <Plus size={12} /> Nouvelle intervention
               </button>
@@ -369,7 +550,7 @@ export default function Maintenance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...interventions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(i => {
+                  {[...localInterventions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(i => {
                     const v = vehicles.find(x => x.id === i.vehiculeId);
                     return (
                       <tr key={i.id} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
@@ -503,6 +684,13 @@ export default function Maintenance() {
       </div>
 
       {selectedVehicle && <VehicleDetail vehiculeId={selectedVehicle} onClose={() => setSelectedVehicle(null)} />}
+
+      {showForm && (
+        <NouvelleInterventionModal
+          onClose={() => setShowForm(false)}
+          onSave={i => setLocalInterventions(prev => [i, ...prev])}
+        />
+      )}
     </div>
   );
 }
