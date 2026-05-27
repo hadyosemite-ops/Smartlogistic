@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell, RefreshCw, Search, Sun, Moon, X, CheckCheck } from 'lucide-react';
 import { alerts as initialAlerts } from '../../data/mock';
 import type { Alert } from '../../data/mock';
@@ -24,24 +24,12 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const { c, isDark, toggle } = useTheme();
   const [showAlerts, setShowAlerts]   = useState(false);
   const [alertList, setAlertList]     = useState<Alert[]>(initialAlerts);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const unread = alertList.filter(a => !a.lu).length;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString('fr-MA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('fr-MA', { hour: '2-digit', minute: '2-digit' });
-
-  // Ferme le panneau au clic extérieur
-  useEffect(() => {
-    if (!showAlerts) return;
-    const handle = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node))
-        setShowAlerts(false);
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [showAlerts]);
 
   const markAllRead = () => setAlertList(prev => prev.map(a => ({ ...a, lu: true })));
   const markRead    = (id: string) => setAlertList(prev => prev.map(a => a.id === id ? { ...a, lu: true } : a));
@@ -86,7 +74,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
         </button>
 
         {/* ── Cloche alertes ─────────────────────────────────────── */}
-        <div className="relative" ref={panelRef}>
+        <div className="relative">
           <button onClick={() => setShowAlerts(v => !v)}
             className="relative w-8 h-8 rounded-lg flex items-center justify-center"
             style={{
@@ -100,10 +88,22 @@ export default function Header({ title, subtitle }: HeaderProps) {
             )}
           </button>
 
+          {/* ── Backdrop ── */}
+          {showAlerts && (
+            <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={() => setShowAlerts(false)} />
+          )}
+
           {/* ── Panneau déroulant ── */}
           {showAlerts && (
-            <div className="absolute right-0 top-10 w-96 rounded-xl shadow-2xl z-50 overflow-hidden"
-              style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <div className="absolute right-0 top-10 w-96 rounded-xl shadow-2xl overflow-hidden"
+              style={{
+                zIndex: 9999,
+                background: isDark ? '#0d1b2e' : '#ffffff',
+                border: `1px solid ${c.borderStrong}`,
+                boxShadow: isDark
+                  ? '0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,212,255,0.08)'
+                  : '0 20px 60px rgba(0,0,0,0.18)',
+              }}>
 
               {/* En-tête panneau */}
               <div className="flex items-center justify-between px-4 py-3"
