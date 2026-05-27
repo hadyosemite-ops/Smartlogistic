@@ -1031,10 +1031,6 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
   const activeStats = activeData ? getStats(activeData.cat) : null;
   const activeItems = activeData ? checklistItems.filter(i => i.categorie === activeData.cat) : [];
 
-  const wheelProps = (cx: number) => ({
-    ...interactiveProps('pneus', 'Pneumatiques'),
-    onClick: () => setActiveZone(activeZone === 'pneus' ? null : 'pneus'),
-  });
 
   const tScore = inspection.tauxConformite;
   const tColor = tScore >= 95 ? '#00e676' : tScore >= 80 ? '#ffb300' : '#ff4444';
