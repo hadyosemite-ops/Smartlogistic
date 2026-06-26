@@ -565,7 +565,7 @@ export default function ControleGestion() {
               <div className="glass-card p-5">
                 <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>Taux de marge par axe (%)</h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={[...routePerf].sort((a,b) => b.margePct - a.margePct)}
+                  <BarChart data={[...(routePerf ?? [])].sort((a,b) => b.margePct - a.margePct)}
                     layout="vertical" margin={{ top: 5, right: 10, left: 80, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} horizontal={false} />
                     <XAxis type="number" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}

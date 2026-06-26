@@ -377,7 +377,7 @@ function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }
 
           {step === 'checklist' && (
             <div className="space-y-2">
-              {categories.map(cat => {
+              {CHECKLIST_CATEGORIES.map(cat => {
                 const { filled, total, nc } = catProgress(cat);
                 const isOpen = openCat === cat;
                 const items = grouped[cat] || [];
@@ -522,7 +522,7 @@ function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }
 
 // ─── Action Row ───────────────────────────────────────────────────────────────
 
-function ActionRow({ action }: { action: ActionCorrectrice }) {
+function ActionRow({ action, vehicles, drivers }: { action: ActionCorrectrice; vehicles: Vehicle[]; drivers: Driver[] }) {
   const { c } = useTheme();
   const v = vehicles.find(x => x.id === action.vehiculeId);
   const d = drivers.find(x => x.id === action.chauffeurId);
@@ -920,7 +920,7 @@ export default function Securite() {
               <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
                 {filteredActions.length === 0
                   ? <div className="px-5 py-8 text-center text-sm" style={{ color: c.textMuted }}>Aucune action correspondante</div>
-                  : filteredActions.map(a => <ActionRow key={a.id} action={a} />)}
+                  : filteredActions.map(a => <ActionRow key={a.id} action={a} vehicles={safeVehicles} drivers={safeDrivers} />)}
               </div>
             </div>
 

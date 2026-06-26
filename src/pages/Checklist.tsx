@@ -257,7 +257,7 @@ function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }
           {/* Step 2: Checklist */}
           {step === 'checklist' && (
             <div className="space-y-2">
-              {categories.map(cat => {
+              {CHECKLIST_CATEGORIES.map(cat => {
                 const { filled, total, nc } = catProgress(cat);
                 const isOpen = openCat === cat;
                 const items = grouped[cat] || [];

@@ -90,7 +90,7 @@ export default function Dashboard() {
               <TrendingUp size={16} style={{ color: c.accent }} />
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={activityData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <AreaChart data={activityData ?? []} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradMissions" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.3} />
@@ -120,7 +120,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={fuelData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <BarChart data={fuelData ?? []} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
                 <XAxis dataKey="month" tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -141,7 +141,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2">
               {recentMissions.map(m => {
-                const driver = drivers.find(d => d.id === m.chauffeurId);
+                const driver = (drivers ?? []).find(d => d.id === m.chauffeurId);
                 return (
                   <div key={m.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg table-row-hover"
                     style={{ background: c.bgElevated, border: `1px solid ${c.borderFaint}` }}>
@@ -192,7 +192,7 @@ export default function Dashboard() {
             <div className="mt-4">
               <p className="text-xs font-medium mb-2" style={{ color: c.textMuted }}>Incidents 6 mois</p>
               <ResponsiveContainer width="100%" height={80}>
-                <BarChart data={incidentData} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+                <BarChart data={incidentData ?? []} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
                   <XAxis dataKey="month" tick={{ fill: c.textFaint, fontSize: 9 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: c.textSecondary }} />
                   <Bar dataKey="accidents"  name="Accidents"   stackId="a" fill="#ff4444" fillOpacity={0.8} />
