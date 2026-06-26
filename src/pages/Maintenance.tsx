@@ -12,9 +12,10 @@ import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
 import {
-  vehicles, interventions, maintenanceAlerts, maintenanceCostByMonth,
   type InterventionType, type Intervention,
 } from '../data/mock';
+import DataState from '../components/ui/DataState';
+import { useVehicles, useInterventions, useMaintenanceAlerts, useMaintenanceCosts } from '../hooks/useFleetData';
 
 const typeLabel: Record<InterventionType, string> = {
   preventive:  'Préventive',
@@ -43,12 +44,17 @@ const urgenceColor: Record<string, string> = {
 
 const PIE_COLORS = ['#00d4ff', '#ff4444', '#ffb300', '#00e676', '#7bacc8'];
 
+import type { Vehicle, MaintenanceAlert } from '../data/mock';
+
 interface VehicleDetailProps {
   vehiculeId: string;
   onClose: () => void;
+  vehicles: Vehicle[];
+  interventions: Intervention[];
+  maintenanceAlerts: MaintenanceAlert[];
 }
 
-function VehicleDetail({ vehiculeId, onClose }: VehicleDetailProps) {
+function VehicleDetail({ vehiculeId, onClose, vehicles, interventions, maintenanceAlerts }: VehicleDetailProps) {
   const { c } = useTheme();
   const v = vehicles.find(x => x.id === vehiculeId);
   if (!v) return null;
@@ -206,9 +212,10 @@ const emptyInterv: IntervFormData = {
   coutPieces: '', coutMainOeuvre: '', garage: '', notes: '',
 };
 
-function NouvelleInterventionModal({ onClose, onSave }: {
+function NouvelleInterventionModal({ onClose, onSave, vehicles }: {
   onClose: () => void;
   onSave: (i: Intervention) => void;
+  vehicles: Vehicle[];
 }) {
   const { c } = useTheme();
   const [form, setForm] = useState<IntervFormData>(emptyInterv);
@@ -375,18 +382,35 @@ export default function Maintenance() {
   const [selectedVehicle, setSelectedVehicle]         = useState<string | null>(null);
   const [activeTab, setActiveTab]                     = useState<'flotte' | 'interventions' | 'couts'>('flotte');
   const [showForm, setShowForm]                       = useState(false);
-  const [localInterventions, setLocalInterventions]   = useState<Intervention[]>([...interventions]);
 
-  const totalCostMois = maintenanceCostByMonth[maintenanceCostByMonth.length - 1].total;
-  const alertsCritiques = maintenanceAlerts.filter(a => a.urgence === 'critique').length;
-  const alertsWarning   = maintenanceAlerts.filter(a => a.urgence === 'warning').length;
-  const enMaintenance   = vehicles.filter(v => v.status === 'maintenance').length;
-  const tauxDispo       = Math.round(((vehicles.length - enMaintenance) / vehicles.length) * 100);
+  const { data: vehicles,          loading: lv, error: ev } = useVehicles();
+  const { data: interventionsData, loading: li, error: ei } = useInterventions();
+  const { data: maintenanceAlerts, loading: la, error: ea } = useMaintenanceAlerts();
+  const { data: costByMonth,       loading: lc, error: ec } = useMaintenanceCosts();
+
+  const loading = lv || li || la || lc;
+  const error   = ev || ei || ea || ec;
+
+  const [localInterventions, setLocalInterventions] = useState<Intervention[]>([]);
+  if (interventionsData && localInterventions.length === 0 && interventionsData.length > 0) {
+    setLocalInterventions(interventionsData);
+  }
+
+  const safeVehicles    = vehicles          ?? [];
+  const safeMAlerts     = maintenanceAlerts ?? [];
+  const safeCostByMonth = costByMonth       ?? [];
+
+  const totalCostMois   = safeCostByMonth.length > 0 ? safeCostByMonth[safeCostByMonth.length - 1].total : 0;
+  const alertsCritiques = safeMAlerts.filter(a => a.urgence === 'critique').length;
+  const alertsWarning   = safeMAlerts.filter(a => a.urgence === 'warning').length;
+  const enMaintenance   = safeVehicles.filter(v => v.status === 'maintenance').length;
+  const tauxDispo       = safeVehicles.length > 0
+    ? Math.round(((safeVehicles.length - enMaintenance) / safeVehicles.length) * 100) : 0;
 
   const pieData = [
-    { name: 'Préventive', value: maintenanceCostByMonth.reduce((s, m) => s + m.preventive, 0) },
-    { name: 'Corrective', value: maintenanceCostByMonth.reduce((s, m) => s + m.corrective, 0) },
-    { name: 'Pneumatiques', value: maintenanceCostByMonth.reduce((s, m) => s + m.pneus, 0) },
+    { name: 'Préventive',   value: safeCostByMonth.reduce((s, m) => s + Number(m.preventive), 0) },
+    { name: 'Corrective',   value: safeCostByMonth.reduce((s, m) => s + Number(m.corrective), 0) },
+    { name: 'Pneumatiques', value: safeCostByMonth.reduce((s, m) => s + Number(m.pneus),      0) },
   ];
 
   const pendingInterventions = localInterventions.filter(i => i.status === 'planifiee' || i.status === 'en_cours');
@@ -396,6 +420,7 @@ export default function Maintenance() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Module Maintenance" subtitle="Gestion préventive, corrective et suivi état de la flotte" />
+      <DataState loading={loading} error={error}>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
@@ -439,7 +464,7 @@ export default function Maintenance() {
         {activeTab === 'flotte' && (
           <div className="space-y-4">
             {/* Alerts banner */}
-            {maintenanceAlerts.filter(a => a.urgence === 'critique').length > 0 && (
+            {safeMAlerts.filter(a => a.urgence === 'critique').length > 0 && (
               <div className="px-4 py-3 rounded-xl flex items-center gap-3"
                 style={{ background: 'rgba(255,68,68,0.06)', border: '1px solid rgba(255,68,68,0.25)' }}>
                 <AlertTriangle size={16} style={{ color: '#ff4444', flexShrink: 0 }} />
@@ -451,8 +476,8 @@ export default function Maintenance() {
 
             {/* Vehicle cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {vehicles.map(v => {
-                const vAlerts    = maintenanceAlerts.filter(a => a.vehiculeId === v.id);
+              {safeVehicles.map(v => {
+                const vAlerts    = safeMAlerts.filter(a => a.vehiculeId === v.id);
                 const hasCritical = vAlerts.some(a => a.urgence === 'critique');
                 const scoreClr   = v.scoreEtat >= 80 ? '#00e676' : v.scoreEtat >= 60 ? '#ffb300' : '#ff4444';
                 const kmToVidange = v.prochaineVidange - v.kmActuel;
@@ -551,7 +576,7 @@ export default function Maintenance() {
                 </thead>
                 <tbody>
                   {[...localInterventions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(i => {
-                    const v = vehicles.find(x => x.id === i.vehiculeId);
+                    const v = safeVehicles.find(x => x.id === i.vehiculeId);
                     return (
                       <tr key={i.id} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                         <td className="px-4 py-3">
@@ -599,7 +624,7 @@ export default function Maintenance() {
                   Coûts de maintenance par mois (MAD)
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={maintenanceCostByMonth} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                  <BarChart data={safeCostByMonth} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
                     <XAxis dataKey="month" tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: c.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -649,8 +674,8 @@ export default function Maintenance() {
             <div className="glass-card p-5">
               <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>Coût de maintenance par véhicule</h3>
               <div className="space-y-3">
-                {vehicles.map(v => {
-                  const vCost = interventions
+                {safeVehicles.map(v => {
+                  const vCost = localInterventions
                     .filter(i => i.vehiculeId === v.id && i.status === 'terminee')
                     .reduce((s, i) => s + i.coutPieces + i.coutMainOeuvre, 0);
                   const maxCost = 50000;
@@ -683,14 +708,24 @@ export default function Maintenance() {
         )}
       </div>
 
-      {selectedVehicle && <VehicleDetail vehiculeId={selectedVehicle} onClose={() => setSelectedVehicle(null)} />}
+      {selectedVehicle && (
+        <VehicleDetail
+          vehiculeId={selectedVehicle}
+          onClose={() => setSelectedVehicle(null)}
+          vehicles={safeVehicles}
+          interventions={localInterventions}
+          maintenanceAlerts={safeMAlerts}
+        />
+      )}
 
       {showForm && (
         <NouvelleInterventionModal
           onClose={() => setShowForm(false)}
           onSave={i => setLocalInterventions(prev => [i, ...prev])}
+          vehicles={safeVehicles}
         />
       )}
+      </DataState>
     </div>
   );
 }

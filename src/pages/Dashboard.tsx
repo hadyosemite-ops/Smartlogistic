@@ -10,25 +10,38 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
+import DataState from '../components/ui/DataState';
 import { useTheme } from '../context/ThemeContext';
+import { statusLabel, statusColor, alertLevelColor } from '../data/mock';
 import {
-  missions, alerts, drivers, vehicles,
-  activityData, fuelData, incidentData,
-  statusLabel, statusColor, alertLevelColor
-} from '../data/mock';
+  useDrivers, useVehicles, useMissions, useAlerts,
+  useActivityData, useFuelData, useIncidentData,
+} from '../hooks/useFleetData';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { c } = useTheme();
 
-  const activeVehicles   = vehicles.filter(v => v.status === 'actif').length;
-  const activeMissions   = missions.filter(m => m.status === 'en_cours').length;
-  const incidentMissions = missions.filter(m => m.status === 'incident' || m.status === 'retard').length;
-  const avgScore         = Math.round(drivers.reduce((s, d) => s + d.scoreGlobal, 0) / drivers.length);
-  const unreadAlerts     = alerts.filter(a => !a.lu).length;
-  const todayDelivered   = missions.filter(m => m.status === 'livree').length;
-  const recentMissions   = missions.slice(0, 5);
-  const criticalAlerts   = alerts.filter(a => !a.lu).slice(0, 4);
+  const { data: vehicles,     loading: lv, error: ev } = useVehicles();
+  const { data: missions,     loading: lm, error: em } = useMissions();
+  const { data: drivers,      loading: ld, error: ed } = useDrivers();
+  const { data: alerts,       loading: la, error: ea } = useAlerts();
+  const { data: activityData, loading: lad }           = useActivityData();
+  const { data: fuelData,     loading: lfd }           = useFuelData();
+  const { data: incidentData, loading: lid }           = useIncidentData();
+
+  const loading = lv || lm || ld || la || lad || lfd || lid;
+  const error   = ev || em || ed || ea;
+
+  const activeVehicles   = (vehicles ?? []).filter(v => v.status === 'actif').length;
+  const activeMissions   = (missions ?? []).filter(m => m.status === 'en_cours').length;
+  const incidentMissions = (missions ?? []).filter(m => m.status === 'incident' || m.status === 'retard').length;
+  const avgScore         = drivers && drivers.length > 0
+    ? Math.round(drivers.reduce((s, d) => s + d.scoreGlobal, 0) / drivers.length) : 0;
+  const unreadAlerts     = (alerts ?? []).filter(a => !a.lu).length;
+  const todayDelivered   = (missions ?? []).filter(m => m.status === 'livree').length;
+  const recentMissions   = (missions ?? []).slice(0, 5);
+  const criticalAlerts   = (alerts ?? []).filter(a => !a.lu).slice(0, 4);
 
   const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
 
@@ -36,11 +49,12 @@ export default function Dashboard() {
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Dashboard Opérationnel" subtitle="Vue temps réel de la flotte — Lundi 25 Mai 2025" />
 
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         {/* KPI Row */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <KPICard label="Véhicules actifs"    value={activeVehicles}  unit={`/${vehicles.length}`}
+          <KPICard label="Véhicules actifs"    value={activeVehicles}  unit={`/${(vehicles ?? []).length}`}
             icon={Truck} iconColor={c.accent} iconBg={c.accentBg}
             trend={5} trendLabel="vs semaine dernière" glowClass="glow-accent"
             onClick={() => navigate('/exploitation')} />
@@ -58,7 +72,7 @@ export default function Dashboard() {
             onClick={() => navigate('/securite')} />
           <KPICard label="Alertes actives"     value={unreadAlerts}
             icon={AlertTriangle} iconColor={c.danger} iconBg={c.dangerBg}
-            trendLabel={`${alerts.filter(a => a.level === 'critique' && !a.lu).length} critiques`} glowClass="glow-danger"
+            trendLabel={`${(alerts ?? []).filter(a => a.level === 'critique' && !a.lu).length} critiques`} glowClass="glow-danger"
             onClick={() => navigate('/securite')} />
           <KPICard label="Incidents / retards" value={incidentMissions}
             icon={Zap} iconColor={c.warning} iconBg={c.warningBg}
@@ -199,7 +213,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[...drivers].sort((a, b) => b.scoreGlobal - a.scoreGlobal).slice(0, 8).map((d, i) => {
+            {[...(drivers ?? [])].sort((a, b) => b.scoreGlobal - a.scoreGlobal).slice(0, 8).map((d, i) => {
               const color = d.scoreGlobal >= 90 ? c.success : d.scoreGlobal >= 75 ? c.accent : d.scoreGlobal >= 60 ? c.warning : c.danger;
               return (
                 <div key={d.id} className="flex items-center gap-3 px-3 py-2 rounded-lg"
@@ -219,6 +233,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </DataState>
     </div>
   );
 }

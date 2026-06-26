@@ -13,9 +13,12 @@ import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
 import {
-  drivers, contratsConducteurs, conges, formations, paieMensuelle,
   type TypeContrat, type StatutConge, type TypeConge
 } from '../data/mock';
+import DataState from '../components/ui/DataState';
+import {
+  useDrivers, useContratsConducteurs, useConges, useFormations, usePaieMensuelle,
+} from '../hooks/useFleetData';
 
 // ─── Labels & Colors ──────────────────────────────────────────────────────────
 
@@ -51,7 +54,13 @@ const statusDriverColor: Record<string, string> = {
 
 // ─── Driver Detail Panel ──────────────────────────────────────────────────────
 
-function DriverPanel({ driverId, onClose }: { driverId: string; onClose: () => void }) {
+import type { Driver, ContratConducteur, PaieMensuelle, Formation, Conge } from '../data/mock';
+
+function DriverPanel({ driverId, onClose, drivers, contratsConducteurs, paieMensuelle, formations, conges }: {
+  driverId: string; onClose: () => void;
+  drivers: Driver[]; contratsConducteurs: ContratConducteur[];
+  paieMensuelle: PaieMensuelle[]; formations: Formation[]; conges: Conge[];
+}) {
   const { c } = useTheme();
   const driver   = drivers.find(d => d.id === driverId);
   const contrat  = contratsConducteurs.find(ct => ct.chauffeurId === driverId);
@@ -284,21 +293,36 @@ export default function RH() {
   const [activeTab, setActiveTab] = useState<TabRH>('conducteurs');
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
 
+  const { data: drivers,             loading: ld, error: ed } = useDrivers();
+  const { data: contratsConducteurs, loading: lc, error: ec } = useContratsConducteurs();
+  const { data: conges,              loading: lcg, error: ecg } = useConges();
+  const { data: formations,          loading: lf, error: ef } = useFormations();
+  const { data: paieMensuelle,       loading: lp, error: ep } = usePaieMensuelle();
+
+  const loading = ld || lc || lcg || lf || lp;
+  const error   = ed || ec || ecg || ef || ep;
+
+  const safeDrv  = drivers             ?? [];
+  const safeCt   = contratsConducteurs ?? [];
+  const safeCg   = conges              ?? [];
+  const safeFm   = formations          ?? [];
+  const safePaie = paieMensuelle       ?? [];
+
   // KPIs
-  const actifs          = drivers.filter(d => d.status === 'actif').length;
-  const enConge         = drivers.filter(d => d.status === 'conge').length;
-  const enAttente       = conges.filter(cg => cg.statut === 'en_attente').length;
-  const today           = new Date('2025-05-25');
-  const docsExpirant    = drivers.filter(d => {
+  const actifs          = safeDrv.filter(d => d.status === 'actif').length;
+  const enConge         = safeDrv.filter(d => d.status === 'conge').length;
+  const enAttente       = safeCg.filter(cg => cg.statut === 'en_attente').length;
+  const today           = new Date();
+  const docsExpirant    = safeDrv.filter(d => {
     const permis = Math.round((new Date(d.permisExpire).getTime() - today.getTime()) / 86400000);
     const visite = Math.round((new Date(d.visiteExpire).getTime() - today.getTime()) / 86400000);
     return permis < 90 || visite < 90;
   }).length;
-  const masseSalariale  = paieMensuelle.reduce((s, p) => s + p.netAPayer, 0);
+  const masseSalariale  = safePaie.reduce((s, p) => s + p.netAPayer, 0);
 
   // Paie bar chart data
-  const paieChartData = paieMensuelle.map(p => {
-    const d = drivers.find(x => x.id === p.chauffeurId);
+  const paieChartData = safePaie.map(p => {
+    const d = safeDrv.find(x => x.id === p.chauffeurId);
     return {
       name:    d ? `${d.prenom[0]}. ${d.nom}` : p.chauffeurId,
       Base:    p.salaireBase,
@@ -313,13 +337,14 @@ export default function RH() {
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Ressources Humaines" subtitle="Gestion conducteurs — contrats, congés, formations, paie" />
 
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard label="Conducteurs actifs" value={actifs}
             icon={Users} iconColor="#00e676" iconBg={c.successBg}
-            trendLabel={`${drivers.length} total · ${enConge} en congé`} glowClass="glow-success" />
+            trendLabel={`${safeDrv.length} total · ${enConge} en congé`} glowClass="glow-success" />
           <KPICard label="Demandes congés" value={enAttente}
             icon={Calendar} iconColor="#ffb300" iconBg={c.warningBg}
             trendLabel="en attente d'approbation" glowClass={enAttente > 0 ? 'glow-warning' : ''} />
@@ -380,8 +405,8 @@ export default function RH() {
                     </tr>
                   </thead>
                   <tbody>
-                    {drivers.map(d => {
-                      const contrat      = contratsConducteurs.find(ct => ct.chauffeurId === d.id);
+                    {safeDrv.map(d => {
+                      const contrat      = safeCt.find(ct => ct.chauffeurId === d.id);
                       const scoreColor   = d.scoreGlobal >= 80 ? '#00e676' : d.scoreGlobal >= 65 ? '#ffb300' : '#ff4444';
                       const permisJours  = Math.round((new Date(d.permisExpire).getTime() - today.getTime()) / 86400000);
                       const visiteJours  = Math.round((new Date(d.visiteExpire).getTime() - today.getTime()) / 86400000);
@@ -464,9 +489,9 @@ export default function RH() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Approuvés',    count: conges.filter(cg=>cg.statut==='approuve').length,   color: '#00e676' },
-                { label: 'En attente',   count: conges.filter(cg=>cg.statut==='en_attente').length,  color: '#ffb300' },
-                { label: 'Refusés',      count: conges.filter(cg=>cg.statut==='refuse').length,      color: '#ff4444' },
+                { label: 'Approuvés',    count: safeCg.filter(cg=>cg.statut==='approuve').length,   color: '#00e676' },
+                { label: 'En attente',   count: safeCg.filter(cg=>cg.statut==='en_attente').length,  color: '#ffb300' },
+                { label: 'Refusés',      count: safeCg.filter(cg=>cg.statut==='refuse').length,      color: '#ff4444' },
               ].map(({ label, count, color }) => (
                 <div key={label} className="glass-card p-4 text-center"
                   style={{ borderColor: `${color}30` }}>
@@ -491,8 +516,8 @@ export default function RH() {
                     </tr>
                   </thead>
                   <tbody>
-                    {conges.map(cg => {
-                      const d = drivers.find(x => x.id === cg.chauffeurId);
+                    {safeCg.map(cg => {
+                      const d = safeDrv.find(x => x.id === cg.chauffeurId);
                       return (
                         <tr key={cg.id} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                           <td className="px-4 py-3">
@@ -530,8 +555,8 @@ export default function RH() {
         {activeTab === 'formations' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {drivers.map(d => {
-                const driverForms = formations.filter(f => f.chauffeurId === d.id);
+              {safeDrv.map(d => {
+                const driverForms = safeFm.filter(f => f.chauffeurId === d.id);
                 const certified   = driverForms.filter(f => f.certificat).length;
                 return (
                   <div key={d.id} className="glass-card p-4 cursor-pointer transition-all"
@@ -579,7 +604,7 @@ export default function RH() {
             <div className="glass-card overflow-hidden">
               <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
-                  Toutes les formations ({formations.length})
+                  Toutes les formations ({safeFm.length})
                 </span>
               </div>
               <div className="overflow-x-auto">
@@ -593,8 +618,8 @@ export default function RH() {
                     </tr>
                   </thead>
                   <tbody>
-                    {formations.map(f => {
-                      const d = drivers.find(x => x.id === f.chauffeurId);
+                    {safeFm.map(f => {
+                      const d = safeDrv.find(x => x.id === f.chauffeurId);
                       const expJours = f.expiration
                         ? Math.round((new Date(f.expiration).getTime() - today.getTime()) / 86400000)
                         : null;
@@ -671,8 +696,8 @@ export default function RH() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paieMensuelle.map(p => {
-                      const d = drivers.find(x => x.id === p.chauffeurId);
+                    {safePaie.map(p => {
+                      const d = safeDrv.find(x => x.id === p.chauffeurId);
                       return (
                         <tr key={p.chauffeurId} className="table-row-hover" style={{ borderBottom: `1px solid ${c.borderFaint}` }}>
                           <td className="px-4 py-3">
@@ -702,8 +727,8 @@ export default function RH() {
                 style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 <div className="flex gap-6">
                   {[
-                    { label: 'Total brut', value: paieMensuelle.reduce((s,p)=>s+p.salaireBase+p.primeKm+p.primeRendement+p.heuresSupp, 0), color: c.textSecondary },
-                    { label: 'Total retenues', value: paieMensuelle.reduce((s,p)=>s+p.retenues, 0), color: '#ff4444' },
+                    { label: 'Total brut', value: safePaie.reduce((s,p)=>s+p.salaireBase+p.primeKm+p.primeRendement+p.heuresSupp, 0), color: c.textSecondary },
+                    { label: 'Total retenues', value: safePaie.reduce((s,p)=>s+p.retenues, 0), color: '#ff4444' },
                   ].map(({ label, value, color }) => (
                     <div key={label}>
                       <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
@@ -723,11 +748,11 @@ export default function RH() {
             {/* Stats masse salariale */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Salaires de base',   value: paieMensuelle.reduce((s,p)=>s+p.salaireBase,0),                              color: c.accent },
-                { label: 'Primes & HS',        value: paieMensuelle.reduce((s,p)=>s+p.primeKm+p.primeRendement+p.heuresSupp,0),    color: '#00e676' },
-                { label: 'Retenues CNSS/IR',   value: paieMensuelle.reduce((s,p)=>s+p.retenues,0),                                  color: '#ff4444' },
+                { label: 'Salaires de base',   value: safePaie.reduce((s,p)=>s+p.salaireBase,0),                              color: c.accent },
+                { label: 'Primes & HS',        value: safePaie.reduce((s,p)=>s+p.primeKm+p.primeRendement+p.heuresSupp,0),    color: '#00e676' },
+                { label: 'Retenues CNSS/IR',   value: safePaie.reduce((s,p)=>s+p.retenues,0),                                  color: '#ff4444' },
               ].map(item => {
-                const totalBrut = paieMensuelle.reduce((s,p)=>s+p.salaireBase+p.primeKm+p.primeRendement+p.heuresSupp,0);
+                const totalBrut = safePaie.reduce((s,p)=>s+p.salaireBase+p.primeKm+p.primeRendement+p.heuresSupp,0);
                 const pct = Math.round((item.value / totalBrut) * 100);
                 return (
                   <div key={item.label} className="glass-card p-4">
@@ -747,9 +772,18 @@ export default function RH() {
         )}
 
       </div>
+      </DataState>
 
       {selectedDriver && (
-        <DriverPanel driverId={selectedDriver} onClose={() => setSelectedDriver(null)} />
+        <DriverPanel
+          driverId={selectedDriver}
+          onClose={() => setSelectedDriver(null)}
+          drivers={safeDrv}
+          contratsConducteurs={safeCt}
+          paieMensuelle={safePaie}
+          formations={safeFm}
+          conges={safeCg}
+        />
       )}
     </div>
   );

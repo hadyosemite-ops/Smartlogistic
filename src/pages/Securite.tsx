@@ -14,12 +14,15 @@ import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import { useTheme } from '../context/ThemeContext';
 import {
-  drivers, alerts, vehicles,
-  checklistItems, inspections, actionsCorrectices, conformiteTrend,
-  qseData,
   type Driver, type CheckStatut, type ActionStatut, type ActionPriorite,
-  type Inspection, type ActionCorrectrice,
+  type Inspection, type ActionCorrectrice, type Alert, type Vehicle, type ChecklistItem,
 } from '../data/mock';
+import DataState from '../components/ui/DataState';
+import {
+  useDrivers, useAlerts, useVehicles,
+  useChecklistItems, useInspections, useActions,
+  useConformiteTrend, useQseData,
+} from '../hooks/useFleetData';
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
 
@@ -53,10 +56,13 @@ const groupBy = <T,>(arr: T[], key: (item: T) => string) =>
     return acc;
   }, {});
 
-const categories = [...new Set(checklistItems.map(i => i.categorie))];
+const CHECKLIST_CATEGORIES = [
+  'Documents réglementaires', 'Conducteur & sécurité', 'EPI obligatoires',
+  'Tracteur', 'Benne / Remorque', 'Pneumatiques', 'Environnement & urgence',
+];
 
-function buildRadarData(insp: Inspection[]) {
-  return categories.map(cat => {
+function buildRadarData(insp: Inspection[], checklistItems: ChecklistItem[]) {
+  return CHECKLIST_CATEGORIES.map(cat => {
     const items = checklistItems.filter(i => i.categorie === cat);
     let conformes = 0, total = 0;
     insp.forEach(ins => {
@@ -72,8 +78,8 @@ function buildRadarData(insp: Inspection[]) {
   });
 }
 
-function buildCatBarData(insp: Inspection[]) {
-  return categories.map(cat => {
+function buildCatBarData(insp: Inspection[], checklistItems: ChecklistItem[]) {
+  return CHECKLIST_CATEGORIES.map(cat => {
     const items = checklistItems.filter(i => i.categorie === cat);
     let conformes = 0, nonConformes = 0;
     insp.forEach(ins => {
@@ -94,7 +100,9 @@ function buildCatBarData(insp: Inspection[]) {
 
 // ─── Driver detail panel ──────────────────────────────────────────────────────
 
-function DriverPanel({ driver, onClose }: { driver: Driver; onClose: () => void }) {
+function DriverPanel({ driver, onClose, alerts }: {
+  driver: Driver; onClose: () => void; alerts: Alert[];
+}) {
   const { c } = useTheme();
   const radarData = [
     { subject: 'Vitesse',     A: driver.scoreVitesse },
@@ -222,9 +230,10 @@ function DriverPanel({ driver, onClose }: { driver: Driver; onClose: () => void 
 
 // ─── Inspection Form ──────────────────────────────────────────────────────────
 
-function InspectionForm({ onClose, onSubmit }: {
+function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }: {
   onClose: () => void;
   onSubmit: (insp: Inspection, actions: ActionCorrectrice[]) => void;
+  vehicles: Vehicle[]; drivers: Driver[]; checklistItems: ChecklistItem[];
 }) {
   const { c } = useTheme();
   const [vehiculeId, setVehiculeId] = useState('');
@@ -232,7 +241,7 @@ function InspectionForm({ onClose, onSubmit }: {
   const [inspecteur, setInspecteur] = useState('Chef de Parc');
   const [resultats, setResultats] = useState<Record<string, CheckStatut>>({});
   const [commentaires, setCommentaires] = useState<Record<string, string>>({});
-  const [openCat, setOpenCat] = useState<string | null>(categories[0]);
+  const [openCat, setOpenCat] = useState<string | null>(CHECKLIST_CATEGORIES[0]);
   const [step, setStep] = useState<'info' | 'checklist' | 'recap'>('info');
 
   const grouped = groupBy(checklistItems, i => i.categorie);
@@ -551,18 +560,44 @@ export default function Securite() {
   const { c } = useTheme();
   const [tab, setTab] = useState<Tab>('qse');
 
+  // Remote data
+  const { data: driversData,      loading: ld, error: ed } = useDrivers();
+  const { data: alertsData,       loading: la, error: ea } = useAlerts();
+  const { data: vehiclesData,     loading: lv, error: ev } = useVehicles();
+  const { data: checklistData,    loading: lck }           = useChecklistItems();
+  const { data: inspectionsData,  loading: li }            = useInspections();
+  const { data: actionsData,      loading: lac }           = useActions();
+  const { data: conformiteData }                           = useConformiteTrend();
+
+  const loading = ld || la || lv || lck || li || lac;
+  const error   = ed || ea || ev;
+
+  const safeDrivers      = driversData      ?? [];
+  const safeAlerts       = alertsData       ?? [];
+  const safeVehicles     = vehiclesData     ?? [];
+  const safeChecklist    = checklistData    ?? [];
+  const safeConformite   = conformiteData   ?? [];
+
   // Scoring state
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [alertFilter, setAlertFilter] = useState<'all' | 'critique' | 'warning' | 'info'>('all');
 
-  // Checklist state
-  const [showForm, setShowForm] = useState(false);
-  const [allInspections, setAllInspections] = useState<Inspection[]>(inspections);
-  const [allActions, setAllActions] = useState<ActionCorrectrice[]>(actionsCorrectices);
-  const [actionFilter, setActionFilter] = useState<ActionStatut | 'all'>('all');
+  // Checklist state (optimistic: start empty, populated from remote)
+  const [allInspections, setAllInspections] = useState<Inspection[]>([]);
+  const [allActions, setAllActions]         = useState<ActionCorrectrice[]>([]);
+  const [showForm, setShowForm]             = useState(false);
+  const [actionFilter, setActionFilter]     = useState<ActionStatut | 'all'>('all');
   const [prioriteFilter, setPrioriteFilter] = useState<ActionPriorite | 'all'>('all');
   const [selectedInspId, setSelectedInspId] = useState<string | null>(null);
   const [diagramInsp, setDiagramInsp]       = useState<Inspection | null>(null);
+  const [inspSynced, setInspSynced]         = useState(false);
+
+  // Sync inspections/actions from remote once
+  if (!inspSynced && inspectionsData) {
+    setAllInspections(inspectionsData);
+    setAllActions(actionsData ?? []);
+    setInspSynced(true);
+  }
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
@@ -578,11 +613,13 @@ export default function Securite() {
   };
 
   // Scoring derived
-  const sorted = [...drivers].sort((a, b) => b.scoreGlobal - a.scoreGlobal);
-  const avgScore = Math.round(drivers.reduce((s, d) => s + d.scoreGlobal, 0) / drivers.length);
-  const criticals = drivers.filter(d => d.scoreGlobal < 70).length;
-  const excellent = drivers.filter(d => d.scoreGlobal >= 90).length;
-  const filteredAlerts = alerts.filter(a => alertFilter === 'all' || a.level === alertFilter);
+  const sorted = [...safeDrivers].sort((a, b) => b.scoreGlobal - a.scoreGlobal);
+  const avgScore = safeDrivers.length > 0
+    ? Math.round(safeDrivers.reduce((s, d) => s + d.scoreGlobal, 0) / safeDrivers.length)
+    : 0;
+  const criticals = safeDrivers.filter(d => d.scoreGlobal < 70).length;
+  const excellent = safeDrivers.filter(d => d.scoreGlobal >= 90).length;
+  const filteredAlerts = safeAlerts.filter(a => alertFilter === 'all' || a.level === alertFilter);
   const scoreTrend = [
     { m: 'Nov', score: 74 }, { m: 'Déc', score: 76 }, { m: 'Jan', score: 75 },
     { m: 'Fév', score: 78 }, { m: 'Mar', score: 80 }, { m: 'Avr', score: 82 },
@@ -595,8 +632,8 @@ export default function Securite() {
   const critiqueOpen = allActions.filter(a => a.statut !== 'cloturee' && a.priorite === 'critique').length;
   const conformeVehicules = new Set(allInspections.filter(i => i.statut === 'conforme').map(i => i.vehiculeId)).size;
   const thisMonthInsp = allInspections.filter(i => i.date.startsWith('2025-05')).length;
-  const radarData = useMemo(() => buildRadarData(allInspections), [allInspections]);
-  const catBarData = useMemo(() => buildCatBarData(allInspections), [allInspections]);
+  const radarData = useMemo(() => buildRadarData(allInspections, safeChecklist), [allInspections, safeChecklist]);
+  const catBarData = useMemo(() => buildCatBarData(allInspections, safeChecklist), [allInspections, safeChecklist]);
   const filteredActions = useMemo(() => allActions.filter(a =>
     (actionFilter === 'all' || a.statut === actionFilter) &&
     (prioriteFilter === 'all' || a.priorite === prioriteFilter)
@@ -628,6 +665,7 @@ export default function Securite() {
       </div>
       <div style={{ height: 1, background: c.border, margin: '0 24px' }} />
 
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
         {/* ── Tab Scoring & Alertes ─────────────────────────────────────── */}
@@ -636,22 +674,22 @@ export default function Securite() {
             <KPICard label="Score moyen flotte" value={avgScore} unit="/100"
               icon={ShieldCheck} iconColor="#00e676" iconBg={c.successBg}
               trend={4} trendLabel="amélioration ce mois" glowClass="glow-success" />
-            <KPICard label="Conducteurs excellents" value={excellent} unit={`/${drivers.length}`}
+            <KPICard label="Conducteurs excellents" value={excellent} unit={`/${safeDrivers.length}`}
               icon={TrendingUp} iconColor="#00d4ff" iconBg={c.accentBg}
               trendLabel="Score ≥ 90/100" />
             <KPICard label="Conducteurs à risque" value={criticals}
               icon={TrendingDown} iconColor="#ff4444" iconBg={c.dangerBg}
               trendLabel="Score < 70/100" glowClass={criticals > 0 ? 'glow-danger' : ''} />
-            <KPICard label="Alertes non lues" value={alerts.filter(a => !a.lu).length}
+            <KPICard label="Alertes non lues" value={safeAlerts.filter(a => !a.lu).length}
               icon={Bell} iconColor="#ffb300" iconBg={c.warningBg}
-              trendLabel={`${alerts.filter(a => a.level === 'critique' && !a.lu).length} critiques`} />
+              trendLabel={`${safeAlerts.filter(a => a.level === 'critique' && !a.lu).length} critiques`} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="glass-card overflow-hidden lg:col-span-2">
               <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Classement sécurité conducteurs</span>
-                <span className="text-xs" style={{ color: c.textMuted }}>{drivers.length} conducteurs</span>
+                <span className="text-xs" style={{ color: c.textMuted }}>{safeDrivers.length} conducteurs</span>
               </div>
               <div className="divide-y" style={{ borderColor: `${c.border}26` }}>
                 {sorted.map((d, i) => {
@@ -753,8 +791,8 @@ export default function Securite() {
               glowClass={critiqueOpen > 0 ? 'glow-danger' : ''} />
             <KPICard label="Inspections ce mois" value={thisMonthInsp}
               icon={BarChart3} iconColor="#00d4ff" iconBg={c.accentBg}
-              trendLabel={`${checklistItems.length} points / contrôle`} />
-            <KPICard label="Véhicules conformes" value={conformeVehicules} unit={`/${vehicles.length}`}
+              trendLabel={`${safeChecklist.length} points / contrôle`} />
+            <KPICard label="Véhicules conformes" value={conformeVehicules} unit={`/${safeVehicles.length}`}
               icon={ShieldAlert} iconColor="#00d4ff" iconBg={c.accentBg}
               trendLabel="Score 100% récent" />
           </div>
@@ -835,7 +873,7 @@ export default function Securite() {
               <div className="glass-card p-5">
                 <h3 className="text-sm font-semibold mb-3" style={{ color: c.textPrimary }}>Tendance conformité flotte</h3>
                 <ResponsiveContainer width="100%" height={110}>
-                  <LineChart data={conformiteTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <LineChart data={safeConformite} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
                     <XAxis dataKey="mois" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis domain={[80, 100]} tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -893,8 +931,8 @@ export default function Securite() {
               </div>
               <div className="divide-y" style={{ borderColor: `${c.border}26` }}>
                 {allInspections.slice(0, 8).map(insp => {
-                  const v = vehicles.find(x => x.id === insp.vehiculeId);
-                  const d = drivers.find(x => x.id === insp.chauffeurId);
+                  const v = safeVehicles.find(x => x.id === insp.vehiculeId);
+                  const d = safeDrivers.find(x => x.id === insp.chauffeurId);
                   const isSelected = selectedInspId === insp.id;
                   const tColor = insp.tauxConformite >= 95 ? '#00e676' : insp.tauxConformite >= 80 ? '#ffb300' : '#ff4444';
                   return (
@@ -924,7 +962,7 @@ export default function Securite() {
                       {isSelected && selectedInsp && (
                         <div className="mt-3 space-y-1.5 pl-1">
                           {Object.entries(selectedInsp.resultats).filter(([, v]) => v === 'non_conforme').map(([itemId]) => {
-                            const item = checklistItems.find(i => i.id === itemId);
+                            const item = safeChecklist.find(i => i.id === itemId);
                             return item ? (
                               <div key={itemId} className="flex items-start gap-2 text-xs" style={{ color: '#ff8888' }}>
                                 <XCircle size={11} className="flex-shrink-0 mt-0.5" /><span>{item.point}</span>
@@ -949,9 +987,32 @@ export default function Securite() {
 
       </div>
 
-      {selectedDriver && <DriverPanel driver={selectedDriver} onClose={() => setSelectedDriver(null)} />}
-      {showForm && <InspectionForm onClose={() => setShowForm(false)} onSubmit={handleInspSubmit} />}
-      {diagramInsp && <TruckDiagramModal inspection={diagramInsp} onClose={() => setDiagramInsp(null)} />}
+      </DataState>
+      {selectedDriver && (
+        <DriverPanel
+          driver={selectedDriver}
+          onClose={() => setSelectedDriver(null)}
+          alerts={safeAlerts}
+        />
+      )}
+      {showForm && (
+        <InspectionForm
+          onClose={() => setShowForm(false)}
+          onSubmit={handleInspSubmit}
+          vehicles={safeVehicles}
+          drivers={safeDrivers}
+          checklistItems={safeChecklist}
+        />
+      )}
+      {diagramInsp && (
+        <TruckDiagramModal
+          inspection={diagramInsp}
+          onClose={() => setDiagramInsp(null)}
+          vehicles={safeVehicles}
+          drivers={safeDrivers}
+          checklistItems={safeChecklist}
+        />
+      )}
     </div>
   );
 }
@@ -968,7 +1029,10 @@ const TRUCK_ZONES = [
   { id: 'environnement',cat: 'Environnement & urgence', label: 'Environ.',       ncPos: { x: 490, y: 216 } },
 ];
 
-function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; onClose: () => void }) {
+function TruckDiagramModal({ inspection, onClose, vehicles, drivers, checklistItems }: {
+  inspection: Inspection; onClose: () => void;
+  vehicles: Vehicle[]; drivers: Driver[]; checklistItems: ChecklistItem[];
+}) {
   const { c, isDark } = useTheme();
   const [activeZone, setActiveZone] = useState<string | null>(null);
 
@@ -1486,6 +1550,8 @@ function TruckDiagramModal({ inspection, onClose }: { inspection: Inspection; on
 
 function QSETab({ tooltipStyle }: { tooltipStyle: React.CSSProperties }) {
   const { c } = useTheme();
+  const { data: qseDataRaw } = useQseData();
+  const qseData = qseDataRaw ?? [];
 
   const activeMonths = qseData.filter(m => m.remonteesChauffeuts > 0 || m.accidentTrajet > 0 || m.accidentSite > 0 || m.accidentClient > 0);
 

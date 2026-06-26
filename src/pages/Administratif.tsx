@@ -11,10 +11,9 @@ import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
-import {
-  documentsVehicules, contratsClients, factures, vehicles,
-  type TypeDocument, type StatutDocument
-} from '../data/mock';
+import { type TypeDocument, type StatutDocument, type ContratClient, type Facture } from '../data/mock';
+import DataState from '../components/ui/DataState';
+import { useDocuments, useContratsClient, useFactures, useVehicles } from '../hooks/useFleetData';
 
 // ─── Labels & Colors ──────────────────────────────────────────────────────────
 
@@ -57,12 +56,15 @@ const PIE_COLORS = ['#00e676', '#ff4444', '#ffb300', '#00d4ff'];
 
 // ─── Contract Detail Panel ────────────────────────────────────────────────────
 
-function ContratPanel({ contratId, onClose }: { contratId: string; onClose: () => void }) {
+function ContratPanel({ contratId, onClose, contratsClients, factures }: {
+  contratId: string; onClose: () => void;
+  contratsClients: ContratClient[]; factures: Facture[];
+}) {
   const { c } = useTheme();
   const ct = contratsClients.find(x => x.id === contratId);
   if (!ct) return null;
 
-  const today     = new Date('2025-05-25');
+  const today     = new Date();
   const finDate   = new Date(ct.dateFin);
   const joursRestants = Math.round((finDate.getTime() - today.getTime()) / 86400000);
   const finClr    = joursRestants < 0 ? '#ff4444' : joursRestants < 90 ? '#ffb300' : '#00e676';
@@ -178,20 +180,33 @@ export default function Administratif() {
   const [activeTab, setActiveTab] = useState<TabAdmin>('documents');
   const [selectedContrat, setSelectedContrat] = useState<string | null>(null);
 
-  const today = new Date('2025-05-25');
+  const { data: documentsVehicules, loading: ldoc, error: edoc } = useDocuments();
+  const { data: contratsClients,    loading: lcc,  error: ecc  } = useContratsClient();
+  const { data: factures,           loading: lf,   error: ef   } = useFactures();
+  const { data: vehicles,           loading: lv,   error: ev   } = useVehicles();
+
+  const loading = ldoc || lcc || lf || lv;
+  const error   = edoc || ecc || ef || ev;
+
+  const safeDocs     = documentsVehicules ?? [];
+  const safeContrats = contratsClients    ?? [];
+  const safeFactures = factures           ?? [];
+  const safeVehicles = vehicles           ?? [];
+
+  const today = new Date();
 
   // KPIs
-  const docsExpires     = documentsVehicules.filter(d => d.statut === 'expire').length;
-  const docsExpBientot  = documentsVehicules.filter(d => d.statut === 'expire_bientot').length;
-  const contratsActifs  = contratsClients.filter(ct => ct.statut === 'actif').length;
-  const facturesRetard  = factures.filter(f => f.statut === 'retard').length;
-  const caEnAttente     = factures
+  const docsExpires     = safeDocs.filter(d => d.statut === 'expire').length;
+  const docsExpBientot  = safeDocs.filter(d => d.statut === 'expire_bientot').length;
+  const contratsActifs  = safeContrats.filter(ct => ct.statut === 'actif').length;
+  const facturesRetard  = safeFactures.filter(f => f.statut === 'retard').length;
+  const caEnAttente     = safeFactures
     .filter(f => f.statut === 'en_attente' || f.statut === 'retard')
     .reduce((s, f) => s + f.montantTTC, 0);
 
-  const allEcheances = documentsVehicules
+  const allEcheances = safeDocs
     .map(d => {
-      const v = vehicles.find(x => x.id === d.vehiculeId);
+      const v = safeVehicles.find(x => x.id === d.vehiculeId);
       const expDate = new Date(d.dateExpiration);
       const jours   = Math.round((expDate.getTime() - today.getTime()) / 86400000);
       return { ...d, vehicule: v, jours };
@@ -199,16 +214,16 @@ export default function Administratif() {
     .sort((a, b) => a.jours - b.jours);
 
   const facturePie = [
-    { name: 'Payées',      value: factures.filter(f=>f.statut==='payee').length },
-    { name: 'En attente',  value: factures.filter(f=>f.statut==='en_attente').length },
-    { name: 'En retard',   value: factures.filter(f=>f.statut==='retard').length },
-    { name: 'Litige',      value: factures.filter(f=>f.statut==='litige').length },
+    { name: 'Payées',      value: safeFactures.filter(f=>f.statut==='payee').length },
+    { name: 'En attente',  value: safeFactures.filter(f=>f.statut==='en_attente').length },
+    { name: 'En retard',   value: safeFactures.filter(f=>f.statut==='retard').length },
+    { name: 'Litige',      value: safeFactures.filter(f=>f.statut==='litige').length },
   ].filter(x => x.value > 0);
 
-  const caChart = contratsClients.map(ct => ({
+  const caChart = safeContrats.map(ct => ({
     client: ct.client.split(' ')[0],
     'CA estimé': Math.round(ct.caAnnuelEstime / 12),
-    'CA réel':   factures.filter(f=>f.client===ct.client).reduce((s,f)=>s+f.montantHT,0),
+    'CA réel':   safeFactures.filter(f=>f.client===ct.client).reduce((s,f)=>s+f.montantHT,0),
   }));
 
   const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
@@ -220,6 +235,7 @@ export default function Administratif() {
         subtitle="Documents véhicules, contrats clients, factures et échéances légales"
       />
 
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
         {/* KPIs */}
@@ -239,7 +255,7 @@ export default function Administratif() {
             icon={Briefcase}
             iconColor={c.accent}
             iconBg={c.accentBg}
-            trendLabel={`${contratsClients.length} total · 1 en négociation`}
+            trendLabel={`${safeContrats.length} total · 1 en négociation`}
           />
           <KPICard
             label="Factures en retard"
@@ -298,8 +314,8 @@ export default function Administratif() {
 
             {/* Cards par véhicule */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {vehicles.map(v => {
-                const vDocs     = documentsVehicules.filter(d => d.vehiculeId === v.id);
+              {safeVehicles.map(v => {
+                const vDocs     = safeDocs.filter(d => d.vehiculeId === v.id);
                 const hasExpire = vDocs.some(d => d.statut === 'expire');
                 const hasSoon   = vDocs.some(d => d.statut === 'expire_bientot');
                 const borderClr = hasExpire ? 'rgba(255,68,68,0.35)' : hasSoon ? 'rgba(255,179,0,0.3)' : undefined;
@@ -353,7 +369,7 @@ export default function Administratif() {
             <div className="glass-card overflow-hidden">
               <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
-                  Tous les documents ({documentsVehicules.length})
+                  Tous les documents ({safeDocs.length})
                 </span>
               </div>
               <div className="overflow-x-auto">
@@ -367,13 +383,14 @@ export default function Administratif() {
                     </tr>
                   </thead>
                   <tbody>
-                    {documentsVehicules
+                    {safeDocs
+                      .slice()
                       .sort((a, b) => {
                         const order = { expire: 0, expire_bientot: 1, valide: 2 };
                         return order[a.statut] - order[b.statut];
                       })
                       .map(doc => {
-                        const v = vehicles.find(x => x.id === doc.vehiculeId);
+                        const v = safeVehicles.find(x => x.id === doc.vehiculeId);
                         const expDate = new Date(doc.dateExpiration);
                         const jours   = Math.round((expDate.getTime() - today.getTime()) / 86400000);
                         const expClr  = jours < 0 ? '#ff4444' : jours < 60 ? '#ffb300' : '#00e676';
@@ -469,9 +486,9 @@ export default function Administratif() {
                   </h3>
                   <div className="space-y-3">
                     {[
-                      { label: 'Valides',        count: documentsVehicules.filter(d=>d.statut==='valide').length,         color: '#00e676' },
-                      { label: 'Expirent < 90j', count: documentsVehicules.filter(d=>d.statut==='expire_bientot').length, color: '#ffb300' },
-                      { label: 'Expirés',        count: documentsVehicules.filter(d=>d.statut==='expire').length,         color: '#ff4444' },
+                      { label: 'Valides',        count: safeDocs.filter(d=>d.statut==='valide').length,         color: '#00e676' },
+                      { label: 'Expirent < 90j', count: safeDocs.filter(d=>d.statut==='expire_bientot').length, color: '#ffb300' },
+                      { label: 'Expirés',        count: safeDocs.filter(d=>d.statut==='expire').length,         color: '#ff4444' },
                     ].map(({ label, count, color }) => (
                       <div key={label}>
                         <div className="flex justify-between text-xs mb-1">
@@ -480,7 +497,7 @@ export default function Administratif() {
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: c.border }}>
                           <div className="h-full rounded-full"
-                            style={{ width: `${(count / documentsVehicules.length) * 100}%`, background: color }} />
+                            style={{ width: `${safeDocs.length ? (count / safeDocs.length) * 100 : 0}%`, background: color }} />
                         </div>
                       </div>
                     ))}
@@ -492,12 +509,12 @@ export default function Administratif() {
                     Coût renouvellements
                   </h3>
                   <div className="space-y-2">
-                    {documentsVehicules
+                    {safeDocs
                       .filter(d => d.statut !== 'valide' && d.montant)
                       .map(doc => (
                         <div key={doc.id} className="flex justify-between text-xs">
                           <span style={{ color: c.textSecondary }}>
-                            {vehicles.find(v=>v.id===doc.vehiculeId)?.immatriculation} · {docTypeLabel[doc.type]}
+                            {safeVehicles.find(v=>v.id===doc.vehiculeId)?.immatriculation} · {docTypeLabel[doc.type]}
                           </span>
                           <span className="font-semibold" style={{ color: '#ffb300' }}>
                             {doc.montant?.toLocaleString()} MAD
@@ -508,7 +525,7 @@ export default function Administratif() {
                       style={{ borderTop: `1px solid ${c.border}` }}>
                       <span style={{ color: c.textSecondary }}>Total à prévoir</span>
                       <span style={{ color: '#ff4444' }}>
-                        {documentsVehicules
+                        {safeDocs
                           .filter(d => d.statut !== 'valide' && d.montant)
                           .reduce((s, d) => s + (d.montant ?? 0), 0)
                           .toLocaleString()} MAD
@@ -560,7 +577,7 @@ export default function Administratif() {
                     </tr>
                   </thead>
                   <tbody>
-                    {contratsClients.map(ct => {
+                    {safeContrats.map(ct => {
                       const finDate    = new Date(ct.dateFin);
                       const jours      = Math.round((finDate.getTime() - today.getTime()) / 86400000);
                       const dateClr    = jours < 0 ? '#ff4444' : jours < 90 ? '#ffb300' : c.textSecondary;
@@ -614,13 +631,13 @@ export default function Administratif() {
                 <div>
                   <div className="text-xs" style={{ color: c.textMuted }}>CA annuel total estimé</div>
                   <div className="text-sm font-bold" style={{ color: c.accent }}>
-                    {(contratsClients.reduce((s,ct)=>s+ct.caAnnuelEstime,0)/1000000).toFixed(2)} M MAD
+                    {(safeContrats.reduce((s,ct)=>s+ct.caAnnuelEstime,0)/1000000).toFixed(2)} M MAD
                   </div>
                 </div>
                 <div>
                   <div className="text-xs" style={{ color: c.textMuted }}>Volume mensuel total</div>
                   <div className="text-sm font-bold" style={{ color: '#00e676' }}>
-                    {contratsClients.reduce((s,ct)=>s+ct.volumeMensuel,0)} missions/mois
+                    {safeContrats.reduce((s,ct)=>s+ct.volumeMensuel,0)} missions/mois
                   </div>
                 </div>
               </div>
@@ -643,26 +660,26 @@ export default function Administratif() {
                   {[
                     {
                       label:   'Total facturé',
-                      value:   factures.reduce((s,f)=>s+f.montantTTC,0),
-                      subval:  `${factures.length} factures`,
+                      value:   safeFactures.reduce((s,f)=>s+f.montantTTC,0),
+                      subval:  `${safeFactures.length} factures`,
                       color:   c.textPrimary,
                     },
                     {
                       label:   'Encaissé',
-                      value:   factures.filter(f=>f.statut==='payee').reduce((s,f)=>s+f.montantTTC,0),
-                      subval:  `${factures.filter(f=>f.statut==='payee').length} factures payées`,
+                      value:   safeFactures.filter(f=>f.statut==='payee').reduce((s,f)=>s+f.montantTTC,0),
+                      subval:  `${safeFactures.filter(f=>f.statut==='payee').length} factures payées`,
                       color:   '#00e676',
                     },
                     {
                       label:   'En attente',
-                      value:   factures.filter(f=>f.statut==='en_attente').reduce((s,f)=>s+f.montantTTC,0),
-                      subval:  `${factures.filter(f=>f.statut==='en_attente').length} en cours`,
+                      value:   safeFactures.filter(f=>f.statut==='en_attente').reduce((s,f)=>s+f.montantTTC,0),
+                      subval:  `${safeFactures.filter(f=>f.statut==='en_attente').length} en cours`,
                       color:   c.accent,
                     },
                     {
                       label:   'En retard',
-                      value:   factures.filter(f=>f.statut==='retard').reduce((s,f)=>s+f.montantTTC,0),
-                      subval:  `${factures.filter(f=>f.statut==='retard').length} dépassées`,
+                      value:   safeFactures.filter(f=>f.statut==='retard').reduce((s,f)=>s+f.montantTTC,0),
+                      subval:  `${safeFactures.filter(f=>f.statut==='retard').length} dépassées`,
                       color:   '#ff4444',
                     },
                   ].map(({ label, value, subval, color }) => (
@@ -726,7 +743,7 @@ export default function Administratif() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...factures]
+                    {[...safeFactures]
                       .sort((a, b) => {
                         const order: Record<string, number> = { retard: 0, en_attente: 1, payee: 2, litige: 3 };
                         return (order[a.statut] ?? 4) - (order[b.statut] ?? 4);
@@ -771,10 +788,10 @@ export default function Administratif() {
               <div className="px-5 py-3 grid grid-cols-4 gap-4"
                 style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {[
-                  { label: 'Total HT',  value: `${factures.reduce((s,f)=>s+f.montantHT,0).toLocaleString()} MAD`,  color: c.textSecondary },
-                  { label: 'Total TVA', value: `${factures.reduce((s,f)=>s+f.tva,0).toLocaleString()} MAD`,         color: c.textMuted },
-                  { label: 'Total TTC', value: `${factures.reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`,  color: c.accent },
-                  { label: 'Encaissé',  value: `${factures.filter(f=>f.statut==='payee').reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`, color: '#00e676' },
+                  { label: 'Total HT',  value: `${safeFactures.reduce((s,f)=>s+f.montantHT,0).toLocaleString()} MAD`,  color: c.textSecondary },
+                  { label: 'Total TVA', value: `${safeFactures.reduce((s,f)=>s+f.tva,0).toLocaleString()} MAD`,         color: c.textMuted },
+                  { label: 'Total TTC', value: `${safeFactures.reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`,  color: c.accent },
+                  { label: 'Encaissé',  value: `${safeFactures.filter(f=>f.statut==='payee').reduce((s,f)=>s+f.montantTTC,0).toLocaleString()} MAD`, color: '#00e676' },
                 ].map(({ label, value, color }) => (
                   <div key={label}>
                     <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
@@ -787,9 +804,15 @@ export default function Administratif() {
         )}
 
       </div>
+      </DataState>
 
       {selectedContrat && (
-        <ContratPanel contratId={selectedContrat} onClose={() => setSelectedContrat(null)} />
+        <ContratPanel
+          contratId={selectedContrat}
+          onClose={() => setSelectedContrat(null)}
+          contratsClients={safeContrats}
+          factures={safeFactures}
+        />
       )}
     </div>
   );

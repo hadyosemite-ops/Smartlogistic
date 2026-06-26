@@ -12,11 +12,15 @@ import {
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import {
-  checklistItems, inspections, actionsCorrectices, conformiteTrend,
-  vehicles, drivers,
   type CheckStatut, type ActionStatut, type ActionPriorite,
   type Inspection, type ActionCorrectrice,
+  type Vehicle, type Driver, type ChecklistItem,
 } from '../data/mock';
+import DataState from '../components/ui/DataState';
+import {
+  useVehicles, useDrivers, useChecklistItems, useInspections,
+  useActions, useConformiteTrend,
+} from '../hooks/useFleetData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,12 +41,15 @@ const groupBy = <T,>(arr: T[], key: (item: T) => string) =>
     return acc;
   }, {});
 
-const categories = [...new Set(checklistItems.map(i => i.categorie))];
+const CHECKLIST_CATEGORIES = [
+  'Documents réglementaires', 'Conducteur & sécurité', 'EPI obligatoires',
+  'Tracteur', 'Benne / Remorque', 'Pneumatiques', 'Environnement & urgence',
+];
 
 // ─── Category radar data ──────────────────────────────────────────────────────
 
-function buildRadarData(insp: Inspection[]) {
-  return categories.map(cat => {
+function buildRadarData(insp: Inspection[], checklistItems: ChecklistItem[]) {
+  return CHECKLIST_CATEGORIES.map(cat => {
     const items = checklistItems.filter(i => i.categorie === cat);
     let conformes = 0, total = 0;
     insp.forEach(ins => {
@@ -58,8 +65,8 @@ function buildRadarData(insp: Inspection[]) {
   });
 }
 
-function buildCatBarData(insp: Inspection[]) {
-  return categories.map(cat => {
+function buildCatBarData(insp: Inspection[], checklistItems: ChecklistItem[]) {
+  return CHECKLIST_CATEGORIES.map(cat => {
     const items = checklistItems.filter(i => i.categorie === cat);
     let conformes = 0, nonConformes = 0;
     insp.forEach(ins => {
@@ -83,15 +90,16 @@ function buildCatBarData(insp: Inspection[]) {
 interface InspectionFormProps {
   onClose: () => void;
   onSubmit: (insp: Inspection, actions: ActionCorrectrice[]) => void;
+  vehicles: Vehicle[]; drivers: Driver[]; checklistItems: ChecklistItem[];
 }
 
-function InspectionForm({ onClose, onSubmit }: InspectionFormProps) {
+function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }: InspectionFormProps) {
   const [vehiculeId, setVehiculeId] = useState('');
   const [chauffeurId, setChauffeurId] = useState('');
   const [inspecteur, setInspecteur] = useState('Chef de Parc');
   const [resultats, setResultats] = useState<Record<string, CheckStatut>>({});
   const [commentaires, setCommentaires] = useState<Record<string, string>>({});
-  const [openCat, setOpenCat] = useState<string | null>(categories[0]);
+  const [openCat, setOpenCat] = useState<string | null>(CHECKLIST_CATEGORIES[0]);
   const [step, setStep] = useState<'info' | 'checklist' | 'recap'>('info');
 
   const grouped = groupBy(checklistItems, i => i.categorie);
@@ -424,7 +432,9 @@ function InspectionForm({ onClose, onSubmit }: InspectionFormProps) {
 
 // ─── Action Plan Row ──────────────────────────────────────────────────────────
 
-function ActionRow({ action }: { action: ActionCorrectrice }) {
+function ActionRow({ action, vehicles, drivers }: {
+  action: ActionCorrectrice; vehicles: Vehicle[]; drivers: Driver[];
+}) {
   const v = vehicles.find(x => x.id === action.vehiculeId);
   const d = drivers.find(x => x.id === action.chauffeurId);
   const pColor = prioriteColor(action.priorite);
@@ -466,12 +476,35 @@ function ActionRow({ action }: { action: ActionCorrectrice }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Checklist() {
-  const [showForm, setShowForm] = useState(false);
-  const [allInspections, setAllInspections] = useState<Inspection[]>(inspections);
-  const [allActions, setAllActions] = useState<ActionCorrectrice[]>(actionsCorrectices);
-  const [actionFilter, setActionFilter] = useState<ActionStatut | 'all'>('all');
+  const { data: vehiclesData,    loading: lv, error: ev } = useVehicles();
+  const { data: driversData,     loading: ld, error: ed } = useDrivers();
+  const { data: checklistData,   loading: lck }           = useChecklistItems();
+  const { data: inspectionsData, loading: li }            = useInspections();
+  const { data: actionsData,     loading: lac }           = useActions();
+  const { data: conformiteData }                          = useConformiteTrend();
+
+  const loading = lv || ld || lck || li || lac;
+  const error   = ev || ed;
+
+  const safeVehicles   = vehiclesData   ?? [];
+  const safeDrivers    = driversData    ?? [];
+  const safeChecklist  = checklistData  ?? [];
+  const safeConformite = conformiteData ?? [];
+
+  const [showForm, setShowForm]           = useState(false);
+  const [allInspections, setAllInspections] = useState<Inspection[]>([]);
+  const [allActions, setAllActions]         = useState<ActionCorrectrice[]>([]);
+  const [actionFilter, setActionFilter]     = useState<ActionStatut | 'all'>('all');
   const [prioriteFilter, setPrioriteFilter] = useState<ActionPriorite | 'all'>('all');
   const [selectedInspId, setSelectedInspId] = useState<string | null>(null);
+  const [inspSynced, setInspSynced]         = useState(false);
+
+  // Sync from remote once loaded
+  if (!inspSynced && inspectionsData) {
+    setAllInspections(inspectionsData);
+    setAllActions(actionsData ?? []);
+    setInspSynced(true);
+  }
 
   const handleSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
@@ -480,15 +513,17 @@ export default function Checklist() {
   };
 
   // KPIs
-  const avgTaux = Math.round(allInspections.reduce((s, i) => s + i.tauxConformite, 0) / allInspections.length);
+  const avgTaux = allInspections.length > 0
+    ? Math.round(allInspections.reduce((s, i) => s + i.tauxConformite, 0) / allInspections.length)
+    : 0;
   const openActions = allActions.filter(a => a.statut !== 'cloturee').length;
   const critiqueOpen = allActions.filter(a => a.statut !== 'cloturee' && a.priorite === 'critique').length;
   const conformeVehicules = new Set(allInspections.filter(i => i.statut === 'conforme').map(i => i.vehiculeId)).size;
-  const thisMonthInsp = allInspections.filter(i => i.date.startsWith('2025-05')).length;
+  const thisMonthInsp = allInspections.filter(i => i.date.startsWith(new Date().toISOString().slice(0, 7))).length;
 
   // Charts
-  const radarData = useMemo(() => buildRadarData(allInspections), [allInspections]);
-  const catBarData = useMemo(() => buildCatBarData(allInspections), [allInspections]);
+  const radarData = useMemo(() => buildRadarData(allInspections, safeChecklist), [allInspections, safeChecklist]);
+  const catBarData = useMemo(() => buildCatBarData(allInspections, safeChecklist), [allInspections, safeChecklist]);
 
   // Filtered actions
   const filteredActions = useMemo(() => allActions.filter(a =>
@@ -506,6 +541,7 @@ export default function Checklist() {
         subtitle="Inspection Tracteur & Benne — Power Hydrlub Réf. RH-PH-001"
       />
 
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
         {/* KPIs */}
@@ -519,8 +555,8 @@ export default function Checklist() {
             glowClass={critiqueOpen > 0 ? 'glow-danger' : ''} />
           <KPICard label="Inspections ce mois" value={thisMonthInsp}
             icon={BarChart3} iconColor="#00d4ff" iconBg="rgba(0,212,255,0.1)"
-            trendLabel={`${checklistItems.length} points / contrôle`} />
-          <KPICard label="Véhicules conformes" value={conformeVehicules} unit={`/${vehicles.length}`}
+            trendLabel={`${safeChecklist.length} points / contrôle`} />
+          <KPICard label="Véhicules conformes" value={conformeVehicules} unit={`/${safeVehicles.length}`}
             icon={ShieldAlert} iconColor="#00d4ff" iconBg="rgba(0,212,255,0.1)"
             trendLabel="Score 100% récent" />
         </div>
@@ -562,7 +598,7 @@ export default function Checklist() {
             <div className="glass-card p-5">
               <h3 className="text-sm font-semibold mb-3" style={{ color: '#e8f4fd' }}>Tendance conformité flotte</h3>
               <ResponsiveContainer width="100%" height={110}>
-                <LineChart data={conformiteTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                <LineChart data={safeConformite} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
                   <XAxis dataKey="mois" tick={{ fill: '#4a7a9b', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis domain={[80, 100]} tick={{ fill: '#4a7a9b', fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -636,7 +672,7 @@ export default function Checklist() {
                 <div className="px-5 py-8 text-center text-sm" style={{ color: '#4a7a9b' }}>
                   Aucune action correspondante
                 </div>
-              ) : filteredActions.map(a => <ActionRow key={a.id} action={a} />)}
+              ) : filteredActions.map(a => <ActionRow key={a.id} action={a} vehicles={safeVehicles} drivers={safeDrivers} />)}
             </div>
           </div>
 
@@ -648,8 +684,8 @@ export default function Checklist() {
             </div>
             <div className="divide-y" style={{ borderColor: '#1e3a5f26' }}>
               {allInspections.slice(0, 8).map(insp => {
-                const v = vehicles.find(x => x.id === insp.vehiculeId);
-                const d = drivers.find(x => x.id === insp.chauffeurId);
+                const v = safeVehicles.find(x => x.id === insp.vehiculeId);
+                const d = safeDrivers.find(x => x.id === insp.chauffeurId);
                 const isSelected = selectedInspId === insp.id;
                 const tColor = insp.tauxConformite >= 95 ? '#00e676' : insp.tauxConformite >= 80 ? '#ffb300' : '#ff4444';
                 return (
@@ -683,7 +719,7 @@ export default function Checklist() {
                         {Object.entries(selectedInsp.resultats)
                           .filter(([, v]) => v === 'non_conforme')
                           .map(([itemId]) => {
-                            const item = checklistItems.find(i => i.id === itemId);
+                            const item = safeChecklist.find(i => i.id === itemId);
                             return item ? (
                               <div key={itemId} className="flex items-start gap-2 text-xs"
                                 style={{ color: '#ff8888' }}>
@@ -705,9 +741,16 @@ export default function Checklist() {
         </div>
 
       </div>
+      </DataState>
 
       {showForm && (
-        <InspectionForm onClose={() => setShowForm(false)} onSubmit={handleSubmit} />
+        <InspectionForm
+          onClose={() => setShowForm(false)}
+          onSubmit={handleSubmit}
+          vehicles={safeVehicles}
+          drivers={safeDrivers}
+          checklistItems={safeChecklist}
+        />
       )}
     </div>
   );

@@ -10,10 +10,11 @@ import {
 import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import { useTheme } from '../context/ThemeContext';
+import DataState from '../components/ui/DataState';
 import {
-  voyageCosts, clientRevenue, routePerf, financialByMonth,
-  missions, getDriver, getVehicle
-} from '../data/mock';
+  useVoyageCosts, useClientRevenue, useRoutePerf,
+  useFinancialByMonth, useMissions, useDrivers, useVehicles,
+} from '../hooks/useFleetData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,14 +34,18 @@ interface VoyageDetailProps {
   onClose: () => void;
 }
 
-function VoyageDetail({ missionId, onClose }: VoyageDetailProps) {
+import type { Mission, VoyageCost, Driver, Vehicle } from '../data/mock';
+
+function VoyageDetail({ missionId, onClose, missions, voyageCosts, drivers, vehicles }: VoyageDetailProps & {
+  missions: Mission[]; voyageCosts: VoyageCost[]; drivers: Driver[]; vehicles: Vehicle[];
+}) {
   const { c } = useTheme();
   const mission = missions.find(m => m.id === missionId);
   const cost    = voyageCosts.find(v => v.missionId === missionId);
   if (!mission || !cost) return null;
 
-  const driver  = getDriver(mission.chauffeurId);
-  const vehicle = getVehicle(mission.vehiculeId);
+  const driver  = drivers.find(d => d.id === mission.chauffeurId);
+  const vehicle = vehicles.find(v => v.id === mission.vehiculeId);
   const marge   = mission.prixHT - cost.total;
   const margePct = Math.round((marge / mission.prixHT) * 100);
   const margeColor = margePct >= 40 ? '#00e676' : margePct >= 25 ? '#ffb300' : '#ff4444';
@@ -179,29 +184,49 @@ export default function ControleGestion() {
   const [activeTab, setActiveTab] = useState<Tab>('synthese');
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
 
+  const { data: financialByMonth, loading: lf, error: ef } = useFinancialByMonth();
+  const { data: voyageCosts,      loading: lvc, error: evc } = useVoyageCosts();
+  const { data: missions,         loading: lm, error: em }  = useMissions();
+  const { data: clientRevenue,    loading: lcr, error: ecr } = useClientRevenue();
+  const { data: routePerf,        loading: lr, error: er }  = useRoutePerf();
+  const { data: drivers,          loading: ld, error: ed }  = useDrivers();
+  const { data: vehicles,         loading: lv, error: ev }  = useVehicles();
+
+  const loading = lf || lvc || lm || lcr || lr || ld || lv;
+  const error   = ef || evc || em || ecr || er || ed || ev;
+
+  const safeFin   = financialByMonth ?? [];
+  const safeVC    = voyageCosts      ?? [];
+  const safeMiss  = missions         ?? [];
+  const safeCR    = clientRevenue    ?? [];
+  const safeRP    = routePerf        ?? [];
+  const safeDrv   = drivers          ?? [];
+  const safeVeh   = vehicles         ?? [];
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
-  const lastMonth    = financialByMonth[financialByMonth.length - 1];
-  const prevMonth    = financialByMonth[financialByMonth.length - 2];
-  const trendCA      = Math.round(((lastMonth.ca - prevMonth.ca) / prevMonth.ca) * 100);
-  const trendMarge   = Math.round(((lastMonth.marge - prevMonth.marge) / prevMonth.marge) * 100);
-  const coutKmMoyen  = (voyageCosts.reduce((s, v) => {
-    const m = missions.find(x => x.id === v.missionId);
+  const lastMonth  = safeFin[safeFin.length - 1] ?? { ca: 0, marge: 0, carburant: 0, maintenance: 0, salaires: 0 };
+  const prevMonth  = safeFin[safeFin.length - 2] ?? { ca: 1, marge: 1 };
+  const trendCA    = prevMonth.ca ? Math.round(((lastMonth.ca - prevMonth.ca) / prevMonth.ca) * 100) : 0;
+  const trendMarge = prevMonth.marge ? Math.round(((lastMonth.marge - prevMonth.marge) / prevMonth.marge) * 100) : 0;
+  const coutKmMoyen  = safeVC.length > 0 ? (safeVC.reduce((s, v) => {
+    const m = safeMiss.find(x => x.id === v.missionId);
     return s + (m ? v.total / (m.distance || 1) : 0);
-  }, 0) / voyageCosts.length).toFixed(2);
-  const margeMoyenne = Math.round(
-    missions.reduce((s, m) => {
-      const costV = voyageCosts.find(v => v.missionId === m.id);
+  }, 0) / safeVC.length).toFixed(2) : '0';
+  const missWithCost = safeMiss.filter(m => safeVC.some(v => v.missionId === m.id));
+  const margeMoyenne = missWithCost.length > 0 ? Math.round(
+    missWithCost.reduce((s, m) => {
+      const costV = safeVC.find(v => v.missionId === m.id);
       return costV ? s + ((m.prixHT - costV.total) / m.prixHT) * 100 : s;
-    }, 0) / missions.filter(m => voyageCosts.some(v => v.missionId === m.id)).length
-  );
+    }, 0) / missWithCost.length
+  ) : 0;
 
   // ── Budget vs réel ──────────────────────────────────────────────────────
   const budgetData = [
-    { cat: 'Carburant',    budget: 42000, reel: lastMonth.carburant,   },
-    { cat: 'Maintenance',  budget: 12000, reel: lastMonth.maintenance, },
-    { cat: 'Salaires',     budget: 44000, reel: lastMonth.salaires,    },
-    { cat: 'Péages',       budget: 9000,  reel: 8940,                  },
-    { cat: 'Assurance',    budget: 7500,  reel: 7200,                  },
+    { cat: 'Carburant',    budget: 42000, reel: Number(lastMonth.carburant)   },
+    { cat: 'Maintenance',  budget: 12000, reel: Number(lastMonth.maintenance) },
+    { cat: 'Salaires',     budget: 44000, reel: Number(lastMonth.salaires)    },
+    { cat: 'Péages',       budget: 9000,  reel: 8940                          },
+    { cat: 'Assurance',    budget: 7500,  reel: 7200                          },
   ];
 
   const tooltipStyle = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12 };
@@ -212,7 +237,7 @@ export default function ControleGestion() {
         title="Contrôle de Gestion"
         subtitle="Rentabilité, coûts de revient et performance financière de la flotte"
       />
-
+      <DataState loading={loading} error={error}>
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
         {/* ── KPIs ── */}
@@ -291,7 +316,7 @@ export default function ControleGestion() {
               </h3>
               <p className="text-xs mb-4" style={{ color: c.textMuted }}>Données en MAD</p>
               <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={financialByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={safeFin} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gCA"    x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.25} />
@@ -430,7 +455,7 @@ export default function ControleGestion() {
                 CA et Marge par client (YTD)
               </h3>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={clientRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
+                <BarChart data={safeCR} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} />
                   <XAxis dataKey="client" tick={{ fill: c.textMuted, fontSize: 10, angle: -25, textAnchor: 'end' }}
                     axisLine={false} tickLine={false} interval={0} />
@@ -463,7 +488,7 @@ export default function ControleGestion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...clientRevenue].sort((a, b) => b.margePct - a.margePct).map((cr, idx) => {
+                    {[...safeCR].sort((a, b) => b.margePct - a.margePct).map((cr, idx) => {
                       const margeClr = cr.margePct >= 40 ? '#00e676' : cr.margePct >= 35 ? '#00d4ff' : cr.margePct >= 30 ? '#ffb300' : '#ff4444';
                       const caKm = (cr.ca / cr.km).toFixed(2);
                       return (
@@ -501,10 +526,10 @@ export default function ControleGestion() {
               {/* Totaux footer */}
               <div className="px-5 py-3 grid grid-cols-4 gap-4" style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {[
-                  { label: 'CA total',       value: `${clientRevenue.reduce((s,cr)=>s+cr.ca,0).toLocaleString()} MAD`,    color: c.accent },
-                  { label: 'Marge totale',   value: `${clientRevenue.reduce((s,cr)=>s+cr.marge,0).toLocaleString()} MAD`, color: '#00e676' },
-                  { label: 'Missions total', value: clientRevenue.reduce((s,cr)=>s+cr.missions,0),                         color: c.textSecondary },
-                  { label: 'Km total',       value: `${clientRevenue.reduce((s,cr)=>s+cr.km,0).toLocaleString()} km`,     color: c.textSecondary },
+                  { label: 'CA total',       value: `${safeCR.reduce((s,cr)=>s+cr.ca,0).toLocaleString()} MAD`,    color: c.accent },
+                  { label: 'Marge totale',   value: `${safeCR.reduce((s,cr)=>s+cr.marge,0).toLocaleString()} MAD`, color: '#00e676' },
+                  { label: 'Missions total', value: safeCR.reduce((s,cr)=>s+cr.missions,0),                         color: c.textSecondary },
+                  { label: 'Km total',       value: `${safeCR.reduce((s,cr)=>s+cr.km,0).toLocaleString()} km`,     color: c.textSecondary },
                 ].map(({ label, value, color }) => (
                   <div key={label}>
                     <div className="text-xs" style={{ color: c.textMuted }}>{label}</div>
@@ -524,7 +549,7 @@ export default function ControleGestion() {
               <div className="glass-card p-5">
                 <h3 className="text-sm font-semibold mb-4" style={{ color: c.textPrimary }}>CA par axe routier (MAD)</h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={[...routePerf].sort((a,b) => b.ca - a.ca)}
+                  <BarChart data={[...safeRP].sort((a,b) => b.ca - a.ca)}
                     layout="vertical" margin={{ top: 5, right: 10, left: 80, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={c.gridStroke} horizontal={false} />
                     <XAxis type="number" tick={{ fill: c.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
@@ -569,7 +594,7 @@ export default function ControleGestion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...routePerf].sort((a,b) => b.margePct - a.margePct).map((r, i) => {
+                    {[...safeRP].sort((a,b) => b.margePct - a.margePct).map((r, i) => {
                       const clr = r.margePct >= 42 ? '#00e676' : r.margePct >= 35 ? '#00d4ff' : r.margePct >= 30 ? '#ffb300' : '#ff4444';
                       const grade = r.margePct >= 42 ? 'A' : r.margePct >= 35 ? 'B' : r.margePct >= 30 ? 'C' : 'D';
                       return (
@@ -633,10 +658,10 @@ export default function ControleGestion() {
                 ))}
               </div>
               <div className="space-y-3">
-                {voyageCosts.map(vc => {
-                  const m      = missions.find(x => x.id === vc.missionId);
+                {safeVC.map(vc => {
+                  const m      = safeMiss.find(x => x.id === vc.missionId);
                   const label  = m?.reference?.replace('OT-2025-', '#') ?? vc.missionId;
-                  const maxVal = Math.max(...voyageCosts.map(v => v.total));
+                  const maxVal = Math.max(...safeVC.map(v => v.total));
                   const segs   = [
                     { v: vc.carburant,        color: '#ff4444' },
                     { v: vc.salaireChauffeur, color: '#ffb300' },
@@ -682,8 +707,8 @@ export default function ControleGestion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {missions.map(m => {
-                      const vc = voyageCosts.find(v => v.missionId === m.id);
+                    {safeMiss.map(m => {
+                      const vc = safeVC.find(v => v.missionId === m.id);
                       if (!vc) return null;
                       const marge    = m.prixHT - vc.total;
                       const margePct = Math.round((marge / m.prixHT) * 100);
@@ -732,8 +757,8 @@ export default function ControleGestion() {
               <div className="px-5 py-3 grid grid-cols-4 gap-4"
                 style={{ borderTop: `1px solid ${c.border}`, background: c.bgElevated }}>
                 {(() => {
-                  const totalCA    = missions.reduce((s,m) => s + m.prixHT, 0);
-                  const totalCout  = voyageCosts.reduce((s,v) => s + v.total, 0);
+                  const totalCA    = safeMiss.reduce((s,m) => s + m.prixHT, 0);
+                  const totalCout  = safeVC.reduce((s,v) => s + v.total, 0);
                   const totalMarge = totalCA - totalCout;
                   const avgMarge   = Math.round((totalMarge / totalCA) * 100);
                   return [
@@ -756,8 +781,16 @@ export default function ControleGestion() {
       </div>
 
       {selectedMission && (
-        <VoyageDetail missionId={selectedMission} onClose={() => setSelectedMission(null)} />
+        <VoyageDetail
+          missionId={selectedMission}
+          onClose={() => setSelectedMission(null)}
+          missions={safeMiss}
+          voyageCosts={safeVC}
+          drivers={safeDrv}
+          vehicles={safeVeh}
+        />
       )}
+      </DataState>
     </div>
   );
 }
