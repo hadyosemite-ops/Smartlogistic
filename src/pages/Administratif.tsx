@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Shield, Briefcase, Receipt,
-  AlertTriangle, CheckCircle, Clock, ChevronRight, X
+  AlertTriangle, CheckCircle, Clock, ChevronRight, X, Plus, Pencil, Trash2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -11,9 +11,10 @@ import Header from '../components/layout/Header';
 import KPICard from '../components/ui/KPICard';
 import Badge from '../components/ui/Badge';
 import { useTheme } from '../context/ThemeContext';
-import { type TypeDocument, type StatutDocument, type ContratClient, type Facture } from '../data/mock';
+import { type TypeDocument, type StatutDocument, type ContratClient, type Facture, type DocumentVehicule } from '../data/mock';
 import DataState from '../components/ui/DataState';
 import { useDocuments, useContratsClient, useFactures, useVehicles } from '../hooks/useFleetData';
+import { adminService, type DocumentInput, type ContratClientInput, type FactureInput } from '../services/adminService';
 
 // ─── Labels & Colors ──────────────────────────────────────────────────────────
 
@@ -53,6 +54,364 @@ const contratTypeColor: Record<string, string> = {
   exclusif:  'text-[#00e676] bg-[#00e67612] border-[#00e67640]',
 };
 const PIE_COLORS = ['#00e676', '#ff4444', '#ffb300', '#00d4ff'];
+
+// ─── Shared modal backdrop ────────────────────────────────────────────────────
+
+function ModalBackdrop({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-lg mx-4 rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  const { c } = useTheme();
+  return (
+    <div className="flex items-center justify-between mb-5">
+      <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>{title}</h3>
+      <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <div>
+      <label className="block text-xs font-medium mb-1" style={{ color: c.textSecondary }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Document Modal ───────────────────────────────────────────────────────────
+
+function DocumentModal({ initial, vehicles, onClose, onSaved }: {
+  initial?: DocumentVehicule;
+  vehicles: { id: string; immatriculation: string; marque: string; modele: string }[];
+  onClose: () => void;
+  onSaved: (doc: DocumentVehicule) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<DocumentInput>({
+    vehiculeId:    initial?.vehiculeId    ?? (vehicles[0]?.id ?? ''),
+    type:          initial?.type          ?? 'assurance',
+    libelle:       initial?.libelle       ?? '',
+    organisme:     initial?.organisme     ?? '',
+    dateEmission:  initial?.dateEmission  ?? '',
+    dateExpiration:initial?.dateExpiration?? '',
+    statut:        initial?.statut        ?? 'valide',
+    montant:       initial?.montant,
+    reference:     initial?.reference     ?? '',
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let doc: DocumentVehicule;
+      if (initial) {
+        await adminService.updateDocument(initial.id, form);
+        doc = { ...initial, ...form };
+      } else {
+        doc = await adminService.createDocument(form);
+      }
+      onSaved(doc);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <ModalHeader title={initial ? 'Modifier le document' : 'Nouveau document véhicule'} onClose={onClose} />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Field label="Véhicule">
+          <select className={inp} style={inpStyle} value={form.vehiculeId}
+            onChange={e => setForm(f => ({ ...f, vehiculeId: e.target.value }))}>
+            {vehicles.map(v => (
+              <option key={v.id} value={v.id}>{v.immatriculation} — {v.marque} {v.modele}</option>
+            ))}
+          </select>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Type">
+            <select className={inp} style={inpStyle} value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value as DocumentInput['type'] }))}>
+              <option value="assurance">Assurance</option>
+              <option value="carte_grise">Carte grise</option>
+              <option value="vignette">Vignette</option>
+              <option value="autorisation">Autorisation</option>
+              <option value="controle_technique">Contrôle technique</option>
+            </select>
+          </Field>
+          <Field label="Statut">
+            <select className={inp} style={inpStyle} value={form.statut}
+              onChange={e => setForm(f => ({ ...f, statut: e.target.value as DocumentInput['statut'] }))}>
+              <option value="valide">Valide</option>
+              <option value="expire_bientot">Expire bientôt</option>
+              <option value="expire">Expiré</option>
+            </select>
+          </Field>
+        </div>
+        <Field label="Libellé">
+          <input className={inp} style={inpStyle} value={form.libelle} required
+            onChange={e => setForm(f => ({ ...f, libelle: e.target.value }))} />
+        </Field>
+        <Field label="Organisme">
+          <input className={inp} style={inpStyle} value={form.organisme ?? ''}
+            onChange={e => setForm(f => ({ ...f, organisme: e.target.value }))} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Date émission">
+            <input type="date" className={inp} style={inpStyle} value={form.dateEmission ?? ''}
+              onChange={e => setForm(f => ({ ...f, dateEmission: e.target.value }))} />
+          </Field>
+          <Field label="Date expiration">
+            <input type="date" className={inp} style={inpStyle} value={form.dateExpiration ?? ''}
+              onChange={e => setForm(f => ({ ...f, dateExpiration: e.target.value }))} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Montant (MAD)">
+            <input type="number" className={inp} style={inpStyle} value={form.montant ?? ''}
+              onChange={e => setForm(f => ({ ...f, montant: e.target.value ? Number(e.target.value) : undefined }))} />
+          </Field>
+          <Field label="Référence">
+            <input className={inp} style={inpStyle} value={form.reference ?? ''}
+              onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
+          </Field>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+            Annuler
+          </button>
+          <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+            {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
+      </form>
+    </ModalBackdrop>
+  );
+}
+
+// ─── Contrat Modal ────────────────────────────────────────────────────────────
+
+function ContratModal({ initial, onClose, onSaved }: {
+  initial?: ContratClient;
+  onClose: () => void;
+  onSaved: (ct: ContratClient) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<ContratClientInput>({
+    client:         initial?.client         ?? '',
+    type:           initial?.type           ?? 'cadre',
+    dateDebut:      initial?.dateDebut      ?? '',
+    dateFin:        initial?.dateFin        ?? '',
+    tarifKm:        initial?.tarifKm        ?? 0,
+    volumeMensuel:  initial?.volumeMensuel  ?? 0,
+    caAnnuelEstime: initial?.caAnnuelEstime ?? 0,
+    statut:         initial?.statut         ?? 'actif',
+    contact:        initial?.contact        ?? '',
+    conditions:     initial?.conditions     ?? '',
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let ct: ContratClient;
+      if (initial) {
+        await adminService.updateContrat(initial.id, form);
+        ct = { ...initial, ...form };
+      } else {
+        ct = await adminService.createContrat(form);
+      }
+      onSaved(ct);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <ModalHeader title={initial ? 'Modifier le contrat' : 'Nouveau contrat client'} onClose={onClose} />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Field label="Client">
+          <input className={inp} style={inpStyle} value={form.client} required
+            onChange={e => setForm(f => ({ ...f, client: e.target.value }))} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Type">
+            <select className={inp} style={inpStyle} value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value as ContratClientInput['type'] }))}>
+              <option value="spot">Spot</option>
+              <option value="cadre">Cadre</option>
+              <option value="exclusif">Exclusif</option>
+            </select>
+          </Field>
+          <Field label="Statut">
+            <select className={inp} style={inpStyle} value={form.statut}
+              onChange={e => setForm(f => ({ ...f, statut: e.target.value as ContratClientInput['statut'] }))}>
+              <option value="actif">Actif</option>
+              <option value="en_negociation">En négociation</option>
+              <option value="expire">Expiré</option>
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Date début">
+            <input type="date" className={inp} style={inpStyle} value={form.dateDebut} required
+              onChange={e => setForm(f => ({ ...f, dateDebut: e.target.value }))} />
+          </Field>
+          <Field label="Date fin">
+            <input type="date" className={inp} style={inpStyle} value={form.dateFin} required
+              onChange={e => setForm(f => ({ ...f, dateFin: e.target.value }))} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Tarif/km (MAD)">
+            <input type="number" step="0.01" className={inp} style={inpStyle} value={form.tarifKm ?? 0}
+              onChange={e => setForm(f => ({ ...f, tarifKm: Number(e.target.value) }))} />
+          </Field>
+          <Field label="Vol. mensuel">
+            <input type="number" className={inp} style={inpStyle} value={form.volumeMensuel ?? 0}
+              onChange={e => setForm(f => ({ ...f, volumeMensuel: Number(e.target.value) }))} />
+          </Field>
+          <Field label="CA annuel (MAD)">
+            <input type="number" className={inp} style={inpStyle} value={form.caAnnuelEstime ?? 0}
+              onChange={e => setForm(f => ({ ...f, caAnnuelEstime: Number(e.target.value) }))} />
+          </Field>
+        </div>
+        <Field label="Contact">
+          <input className={inp} style={inpStyle} value={form.contact ?? ''}
+            onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} />
+        </Field>
+        <Field label="Conditions">
+          <textarea className={inp} style={inpStyle} rows={2} value={form.conditions ?? ''}
+            onChange={e => setForm(f => ({ ...f, conditions: e.target.value }))} />
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+            Annuler
+          </button>
+          <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+            {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
+      </form>
+    </ModalBackdrop>
+  );
+}
+
+// ─── Facture Modal ────────────────────────────────────────────────────────────
+
+function FactureModal({ initial, onClose, onSaved }: {
+  initial?: Facture;
+  onClose: () => void;
+  onSaved: (f: Facture) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<FactureInput>({
+    client:       initial?.client       ?? '',
+    dateEmission: initial?.dateEmission ?? '',
+    dateEcheance: initial?.dateEcheance ?? '',
+    montantHT:    initial?.montantHT    ?? 0,
+    tva:          initial?.tva          ?? 0,
+    montantTTC:   initial?.montantTTC   ?? 0,
+    statut:       initial?.statut       ?? 'en_attente',
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let facture: Facture;
+      if (initial) {
+        await adminService.updateFacture(initial.id, form);
+        facture = { ...initial, ...form };
+      } else {
+        facture = await adminService.createFacture(form);
+      }
+      onSaved(facture);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <ModalHeader title={initial ? 'Modifier la facture' : 'Nouvelle facture'} onClose={onClose} />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Field label="Client">
+          <input className={inp} style={inpStyle} value={form.client} required
+            onChange={e => setForm(f => ({ ...f, client: e.target.value }))} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Date émission">
+            <input type="date" className={inp} style={inpStyle} value={form.dateEmission} required
+              onChange={e => setForm(f => ({ ...f, dateEmission: e.target.value }))} />
+          </Field>
+          <Field label="Date échéance">
+            <input type="date" className={inp} style={inpStyle} value={form.dateEcheance} required
+              onChange={e => setForm(f => ({ ...f, dateEcheance: e.target.value }))} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Montant HT (MAD)">
+            <input type="number" step="0.01" className={inp} style={inpStyle} value={form.montantHT}
+              onChange={e => setForm(f => ({ ...f, montantHT: Number(e.target.value) }))} />
+          </Field>
+          <Field label="TVA (MAD)">
+            <input type="number" step="0.01" className={inp} style={inpStyle} value={form.tva}
+              onChange={e => setForm(f => ({ ...f, tva: Number(e.target.value) }))} />
+          </Field>
+          <Field label="Montant TTC (MAD)">
+            <input type="number" step="0.01" className={inp} style={inpStyle} value={form.montantTTC}
+              onChange={e => setForm(f => ({ ...f, montantTTC: Number(e.target.value) }))} />
+          </Field>
+        </div>
+        <Field label="Statut">
+          <select className={inp} style={inpStyle} value={form.statut}
+            onChange={e => setForm(f => ({ ...f, statut: e.target.value as FactureInput['statut'] }))}>
+            <option value="en_attente">En attente</option>
+            <option value="payee">Payée</option>
+            <option value="retard">En retard</option>
+            <option value="litige">Litige</option>
+          </select>
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+            Annuler
+          </button>
+          <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+            {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
+      </form>
+    </ModalBackdrop>
+  );
+}
 
 // ─── Contract Detail Panel ────────────────────────────────────────────────────
 
@@ -180,18 +539,99 @@ export default function Administratif() {
   const [activeTab, setActiveTab] = useState<TabAdmin>('documents');
   const [selectedContrat, setSelectedContrat] = useState<string | null>(null);
 
-  const { data: documentsVehicules, loading: ldoc, error: edoc } = useDocuments();
-  const { data: contratsClients,    loading: lcc,  error: ecc  } = useContratsClient();
-  const { data: factures,           loading: lf,   error: ef   } = useFactures();
+  const { data: documentsVehicules, loading: ldoc, error: edoc, refetch: refetchDocs } = useDocuments();
+  const { data: contratsClients,    loading: lcc,  error: ecc,  refetch: refetchContrats } = useContratsClient();
+  const { data: factures,           loading: lf,   error: ef,   refetch: refetchFactures } = useFactures();
   const { data: vehicles,           loading: lv,   error: ev   } = useVehicles();
 
   const loading = ldoc || lcc || lf || lv;
   const error   = edoc || ecc || ef || ev;
 
-  const safeDocs     = documentsVehicules ?? [];
-  const safeContrats = contratsClients    ?? [];
-  const safeFactures = factures           ?? [];
-  const safeVehicles = vehicles           ?? [];
+  // Local state for optimistic updates
+  const [localDocs,     setLocalDocs]     = useState<DocumentVehicule[]>([]);
+  const [localContrats, setLocalContrats] = useState<ContratClient[]>([]);
+  const [localFactures, setLocalFactures] = useState<Facture[]>([]);
+
+  useEffect(() => { if (documentsVehicules) setLocalDocs(documentsVehicules); }, [documentsVehicules]);
+  useEffect(() => { if (contratsClients)    setLocalContrats(contratsClients); }, [contratsClients]);
+  useEffect(() => { if (factures)           setLocalFactures(factures); }, [factures]);
+
+  const safeVehicles = vehicles ?? [];
+
+  // CRUD modal state
+  const [showDocModal,     setShowDocModal]     = useState(false);
+  const [editDocId,        setEditDocId]        = useState<string | null>(null);
+  const [deleteDocId,      setDeleteDocId]      = useState<string | null>(null);
+  const [deletingDoc,      setDeletingDoc]      = useState(false);
+
+  const [showContratModal, setShowContratModal] = useState(false);
+  const [editContratId,    setEditContratId]    = useState<string | null>(null);
+  const [deleteContratId,  setDeleteContratId]  = useState<string | null>(null);
+  const [deletingContrat,  setDeletingContrat]  = useState(false);
+
+  const [showFactureModal, setShowFactureModal] = useState(false);
+  const [editFactureId,    setEditFactureId]    = useState<string | null>(null);
+  const [deleteFactureId,  setDeleteFactureId]  = useState<string | null>(null);
+  const [deletingFacture,  setDeletingFacture]  = useState(false);
+
+  const editDoc     = localDocs.find(d => d.id === editDocId);
+  const editContrat = localContrats.find(ct => ct.id === editContratId);
+  const editFacture = localFactures.find(f => f.id === editFactureId);
+
+  // Handlers: Documents
+  const handleDocSaved = (doc: DocumentVehicule) => {
+    setLocalDocs(prev => editDocId ? prev.map(d => d.id === doc.id ? doc : d) : [doc, ...prev]);
+    setShowDocModal(false); setEditDocId(null);
+    refetchDocs();
+  };
+  const handleDocDelete = async () => {
+    if (!deleteDocId) return;
+    setDeletingDoc(true);
+    try {
+      await adminService.deleteDocument(deleteDocId);
+      setLocalDocs(prev => prev.filter(d => d.id !== deleteDocId));
+      setDeleteDocId(null);
+      refetchDocs();
+    } finally { setDeletingDoc(false); }
+  };
+
+  // Handlers: Contrats
+  const handleContratSaved = (ct: ContratClient) => {
+    setLocalContrats(prev => editContratId ? prev.map(c => c.id === ct.id ? ct : c) : [ct, ...prev]);
+    setShowContratModal(false); setEditContratId(null);
+    refetchContrats();
+  };
+  const handleContratDelete = async () => {
+    if (!deleteContratId) return;
+    setDeletingContrat(true);
+    try {
+      await adminService.deleteContrat(deleteContratId);
+      setLocalContrats(prev => prev.filter(ct => ct.id !== deleteContratId));
+      setDeleteContratId(null);
+      refetchContrats();
+    } finally { setDeletingContrat(false); }
+  };
+
+  // Handlers: Factures
+  const handleFactureSaved = (f: Facture) => {
+    setLocalFactures(prev => editFactureId ? prev.map(x => x.id === f.id ? f : x) : [f, ...prev]);
+    setShowFactureModal(false); setEditFactureId(null);
+    refetchFactures();
+  };
+  const handleFactureDelete = async () => {
+    if (!deleteFactureId) return;
+    setDeletingFacture(true);
+    try {
+      await adminService.deleteFacture(deleteFactureId);
+      setLocalFactures(prev => prev.filter(f => f.id !== deleteFactureId));
+      setDeleteFactureId(null);
+      refetchFactures();
+    } finally { setDeletingFacture(false); }
+  };
+
+  const safeDocs     = localDocs;
+  const safeContrats = localContrats;
+  const safeFactures = localFactures;
 
   const today = new Date();
 
@@ -367,16 +807,21 @@ export default function Administratif() {
 
             {/* Table complète */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Tous les documents ({safeDocs.length})
                 </span>
+                <button onClick={() => { setEditDocId(null); setShowDocModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                      {['Véhicule', 'Type', 'Libellé', 'Organisme', 'Émission', 'Expiration', 'Montant', 'Statut'].map(h => (
+                      {['Véhicule', 'Type', 'Libellé', 'Organisme', 'Émission', 'Expiration', 'Montant', 'Statut', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                           style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
@@ -419,6 +864,14 @@ export default function Administratif() {
                             </td>
                             <td className="px-4 py-3">
                               <Badge label={statutDocLabel[doc.statut]} className={statutDocColor[doc.statut]} />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => { setEditDocId(doc.id); setShowDocModal(true); }}
+                                  style={{ color: c.accent }}><Pencil size={13} /></button>
+                                <button onClick={() => setDeleteDocId(doc.id)}
+                                  style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -563,8 +1016,13 @@ export default function Administratif() {
 
             {/* Table contrats */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Portefeuille clients</span>
+                <button onClick={() => { setEditContratId(null); setShowContratModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -615,10 +1073,17 @@ export default function Administratif() {
                               'text-[#ff4444] bg-[#ff444412] border-[#ff444440]'
                             } />
                           </td>
-                          <td className="px-4 py-3">
-                            <button className="flex items-center gap-1 text-xs" style={{ color: c.accent }}>
-                              Détail <ChevronRight size={12} />
-                            </button>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <button className="flex items-center gap-1 text-xs" style={{ color: c.accent }}
+                                onClick={() => setSelectedContrat(ct.id)}>
+                                <ChevronRight size={12} />
+                              </button>
+                              <button onClick={() => { setEditContratId(ct.id); setShowContratModal(true); }}
+                                style={{ color: c.accent }}><Pencil size={13} /></button>
+                              <button onClick={() => setDeleteContratId(ct.id)}
+                                style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -727,16 +1192,21 @@ export default function Administratif() {
 
             {/* Table factures */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Liste des factures
                 </span>
+                <button onClick={() => { setEditFactureId(null); setShowFactureModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                      {['Référence', 'Client', 'Émission', 'Échéance', 'HT', 'TVA', 'TTC', 'Statut'].map(h => (
+                      {['Référence', 'Client', 'Émission', 'Échéance', 'HT', 'TVA', 'TTC', 'Statut', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                           style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
@@ -777,6 +1247,14 @@ export default function Administratif() {
                             <td className="px-4 py-3">
                               <Badge label={f.statut} className={factureColor[f.statut]} />
                             </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => { setEditFactureId(f.id); setShowFactureModal(true); }}
+                                  style={{ color: c.accent }}><Pencil size={13} /></button>
+                                <button onClick={() => setDeleteFactureId(f.id)}
+                                  style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
@@ -813,6 +1291,100 @@ export default function Administratif() {
           contratsClients={safeContrats}
           factures={safeFactures}
         />
+      )}
+
+      {/* Document Modal */}
+      {showDocModal && (
+        <DocumentModal
+          initial={editDocId ? editDoc : undefined}
+          vehicles={safeVehicles}
+          onClose={() => { setShowDocModal(false); setEditDocId(null); }}
+          onSaved={handleDocSaved}
+        />
+      )}
+
+      {/* Contrat Modal */}
+      {showContratModal && (
+        <ContratModal
+          initial={editContratId ? editContrat : undefined}
+          onClose={() => { setShowContratModal(false); setEditContratId(null); }}
+          onSaved={handleContratSaved}
+        />
+      )}
+
+      {/* Facture Modal */}
+      {showFactureModal && (
+        <FactureModal
+          initial={editFactureId ? editFacture : undefined}
+          onClose={() => { setShowFactureModal(false); setEditFactureId(null); }}
+          onSaved={handleFactureSaved}
+        />
+      )}
+
+      {/* Delete confirm — Document */}
+      {deleteDocId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer le document ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteDocId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+                Annuler
+              </button>
+              <button onClick={handleDocDelete} disabled={deletingDoc} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingDoc ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm — Contrat */}
+      {deleteContratId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer le contrat ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteContratId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+                Annuler
+              </button>
+              <button onClick={handleContratDelete} disabled={deletingContrat} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingContrat ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm — Facture */}
+      {deleteFactureId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer la facture ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteFactureId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+                Annuler
+              </button>
+              <button onClick={handleFactureDelete} disabled={deletingFacture} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingFacture ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

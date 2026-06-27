@@ -15,6 +15,11 @@ function mapRow(r: Record<string, unknown>): Alert {
   };
 }
 
+export type AlertInput = {
+  type: string; level: Alert['level']; message: string;
+  vehiculeId?: string; chauffeurId?: string; missionId?: string;
+};
+
 export const alertService = {
   async getAll(): Promise<Alert[]> {
     const { data, error } = await supabase.from('alerts').select('*').order('timestamp', { ascending: false });
@@ -29,6 +34,29 @@ export const alertService = {
 
   async markAllAsRead(): Promise<void> {
     const { error } = await supabase.from('alerts').update({ lu: true }).eq('lu', false);
+    if (error) throw error;
+  },
+
+  async create(input: AlertInput): Promise<Alert> {
+    const id = `a${Date.now()}`;
+    const row = {
+      id,
+      type:        input.type,
+      level:       input.level,
+      message:     input.message,
+      vehicule_id: input.vehiculeId ?? null,
+      chauffeur_id:input.chauffeurId ?? null,
+      mission_id:  input.missionId ?? null,
+      timestamp:   new Date().toISOString(),
+      lu:          false,
+    };
+    const { data, error } = await supabase.from('alerts').insert(row).select().single();
+    if (error) throw error;
+    return mapRow(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from('alerts').delete().eq('id', id);
     if (error) throw error;
   },
 };

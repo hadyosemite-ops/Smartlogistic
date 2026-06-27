@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users, FileText, Calendar, DollarSign,
   X, ChevronRight,
-  AlertTriangle, Award, Phone
+  AlertTriangle, Award, Phone, Plus, Pencil, Trash2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -19,6 +19,8 @@ import DataState from '../components/ui/DataState';
 import {
   useDrivers, useContratsConducteurs, useConges, useFormations, usePaieMensuelle,
 } from '../hooks/useFleetData';
+import { driverService, type DriverInput } from '../services/driverService';
+import { rhService, type CongeInput, type FormationInput, type PaieInput } from '../services/rhService';
 
 // ─── Labels & Colors ──────────────────────────────────────────────────────────
 
@@ -52,9 +54,431 @@ const statusDriverColor: Record<string, string> = {
   indisponible: 'text-[#ff4444] bg-[#ff444410] border-[#ff444440]',
 };
 
-// ─── Driver Detail Panel ──────────────────────────────────────────────────────
-
 import type { Driver, ContratConducteur, PaieMensuelle, Formation, Conge } from '../data/mock';
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function RhField({ label, children }: { label: string; children: React.ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <div>
+      <label className="block text-xs font-medium mb-1" style={{ color: c.textSecondary }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Driver Modal ─────────────────────────────────────────────────────────────
+
+function DriverModal({ initial, onClose, onSaved }: {
+  initial?: Driver;
+  onClose: () => void;
+  onSaved: (d: Driver) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<DriverInput>({
+    nom:      initial?.nom      ?? '',
+    prenom:   initial?.prenom   ?? '',
+    matricule:initial?.matricule?? '',
+    phone:    initial?.phone    ?? '',
+    status:   initial?.status   ?? 'actif',
+    permisExpire: initial?.permisExpire ?? '',
+    visiteExpire: initial?.visiteExpire ?? '',
+    scoreGlobal:  initial?.scoreGlobal  ?? 80,
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let driver: Driver;
+      if (initial) {
+        await driverService.update(initial.id, form);
+        driver = { ...initial, ...form } as Driver;
+      } else {
+        driver = await driverService.create(form);
+      }
+      onSaved(driver);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>
+            {initial ? 'Modifier le conducteur' : 'Nouveau conducteur'}
+          </h3>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Prénom">
+              <input className={inp} style={inpStyle} value={form.prenom} required
+                onChange={e => setForm(f => ({ ...f, prenom: e.target.value }))} />
+            </RhField>
+            <RhField label="Nom">
+              <input className={inp} style={inpStyle} value={form.nom} required
+                onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} />
+            </RhField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Matricule">
+              <input className={inp} style={inpStyle} value={form.matricule} required
+                onChange={e => setForm(f => ({ ...f, matricule: e.target.value }))} />
+            </RhField>
+            <RhField label="Téléphone">
+              <input className={inp} style={inpStyle} value={form.phone ?? ''}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </RhField>
+          </div>
+          <RhField label="Statut">
+            <select className={inp} style={inpStyle} value={form.status}
+              onChange={e => setForm(f => ({ ...f, status: e.target.value as DriverInput['status'] }))}>
+              <option value="actif">Actif</option>
+              <option value="repos">Repos</option>
+              <option value="conge">Congé</option>
+              <option value="indisponible">Indisponible</option>
+            </select>
+          </RhField>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Expiration permis">
+              <input type="date" className={inp} style={inpStyle} value={form.permisExpire ?? ''}
+                onChange={e => setForm(f => ({ ...f, permisExpire: e.target.value }))} />
+            </RhField>
+            <RhField label="Expiration visite méd.">
+              <input type="date" className={inp} style={inpStyle} value={form.visiteExpire ?? ''}
+                onChange={e => setForm(f => ({ ...f, visiteExpire: e.target.value }))} />
+            </RhField>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+              style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+              {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Congé Modal ──────────────────────────────────────────────────────────────
+
+function CongeModal({ initial, drivers, onClose, onSaved }: {
+  initial?: Conge;
+  drivers: Driver[];
+  onClose: () => void;
+  onSaved: (cg: Conge) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<CongeInput>({
+    chauffeurId: initial?.chauffeurId ?? (drivers[0]?.id ?? ''),
+    type:        initial?.type        ?? 'conge_annuel',
+    dateDebut:   initial?.dateDebut   ?? '',
+    dateFin:     initial?.dateFin     ?? '',
+    jours:       initial?.jours       ?? 1,
+    statut:      initial?.statut      ?? 'en_attente',
+    motif:       initial?.motif       ?? '',
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let cg: Conge;
+      if (initial) {
+        await rhService.updateConge(initial.id, form);
+        cg = { ...initial, ...form };
+      } else {
+        cg = await rhService.createConge(form);
+      }
+      onSaved(cg);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>
+            {initial ? 'Modifier la demande' : 'Nouvelle demande de congé'}
+          </h3>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <RhField label="Conducteur">
+            <select className={inp} style={inpStyle} value={form.chauffeurId}
+              onChange={e => setForm(f => ({ ...f, chauffeurId: e.target.value }))}>
+              {drivers.map(d => (
+                <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>
+              ))}
+            </select>
+          </RhField>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Type">
+              <select className={inp} style={inpStyle} value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value as CongeInput['type'] }))}>
+                <option value="conge_annuel">Congé annuel</option>
+                <option value="maladie">Maladie</option>
+                <option value="sans_solde">Sans solde</option>
+                <option value="formation">Formation</option>
+              </select>
+            </RhField>
+            <RhField label="Statut">
+              <select className={inp} style={inpStyle} value={form.statut}
+                onChange={e => setForm(f => ({ ...f, statut: e.target.value as CongeInput['statut'] }))}>
+                <option value="en_attente">En attente</option>
+                <option value="approuve">Approuvé</option>
+                <option value="refuse">Refusé</option>
+              </select>
+            </RhField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Date début">
+              <input type="date" className={inp} style={inpStyle} value={form.dateDebut} required
+                onChange={e => setForm(f => ({ ...f, dateDebut: e.target.value }))} />
+            </RhField>
+            <RhField label="Date fin">
+              <input type="date" className={inp} style={inpStyle} value={form.dateFin} required
+                onChange={e => setForm(f => ({ ...f, dateFin: e.target.value }))} />
+            </RhField>
+          </div>
+          <RhField label="Nombre de jours">
+            <input type="number" className={inp} style={inpStyle} value={form.jours}
+              onChange={e => setForm(f => ({ ...f, jours: Number(e.target.value) }))} />
+          </RhField>
+          <RhField label="Motif">
+            <input className={inp} style={inpStyle} value={form.motif ?? ''}
+              onChange={e => setForm(f => ({ ...f, motif: e.target.value }))} />
+          </RhField>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+              style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+              {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Formation Modal ──────────────────────────────────────────────────────────
+
+function FormationModal({ initial, drivers, onClose, onSaved }: {
+  initial?: Formation;
+  drivers: Driver[];
+  onClose: () => void;
+  onSaved: (f: Formation) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<FormationInput>({
+    chauffeurId: initial?.chauffeurId ?? (drivers[0]?.id ?? ''),
+    intitule:    initial?.intitule    ?? '',
+    organisme:   initial?.organisme   ?? '',
+    date:        initial?.date        ?? '',
+    dureeJours:  initial?.dureeJours  ?? 1,
+    certificat:  initial?.certificat  ?? false,
+    expiration:  initial?.expiration  ?? '',
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      let fm: Formation;
+      if (initial) {
+        await rhService.updateFormation(initial.id, form);
+        fm = { ...initial, ...form };
+      } else {
+        fm = await rhService.createFormation(form);
+      }
+      onSaved(fm);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>
+            {initial ? 'Modifier la formation' : 'Nouvelle formation'}
+          </h3>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <RhField label="Conducteur">
+            <select className={inp} style={inpStyle} value={form.chauffeurId}
+              onChange={e => setForm(f => ({ ...f, chauffeurId: e.target.value }))}>
+              {drivers.map(d => (
+                <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>
+              ))}
+            </select>
+          </RhField>
+          <RhField label="Intitulé">
+            <input className={inp} style={inpStyle} value={form.intitule} required
+              onChange={e => setForm(f => ({ ...f, intitule: e.target.value }))} />
+          </RhField>
+          <RhField label="Organisme">
+            <input className={inp} style={inpStyle} value={form.organisme ?? ''}
+              onChange={e => setForm(f => ({ ...f, organisme: e.target.value }))} />
+          </RhField>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Date">
+              <input type="date" className={inp} style={inpStyle} value={form.date} required
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+            </RhField>
+            <RhField label="Durée (jours)">
+              <input type="number" className={inp} style={inpStyle} value={form.dureeJours ?? 1}
+                onChange={e => setForm(f => ({ ...f, dureeJours: Number(e.target.value) }))} />
+            </RhField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Certificat">
+              <select className={inp} style={inpStyle} value={form.certificat ? 'oui' : 'non'}
+                onChange={e => setForm(f => ({ ...f, certificat: e.target.value === 'oui' }))}>
+                <option value="non">Non</option>
+                <option value="oui">Oui</option>
+              </select>
+            </RhField>
+            <RhField label="Expiration certificat">
+              <input type="date" className={inp} style={inpStyle} value={form.expiration ?? ''}
+                onChange={e => setForm(f => ({ ...f, expiration: e.target.value }))} />
+            </RhField>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+              style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+              {saving ? 'Enregistrement…' : initial ? 'Modifier' : 'Créer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Paie Modal ───────────────────────────────────────────────────────────────
+
+function PaieModal({ drivers, onClose, onSaved }: {
+  drivers: Driver[];
+  onClose: () => void;
+  onSaved: (p: PaieInput) => void;
+}) {
+  const { c } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<PaieInput>({
+    chauffeurId: drivers[0]?.id ?? '',
+    mois: new Date().toISOString().slice(0, 7),
+    salaireBase: 0, primeKm: 0, primeRendement: 0, heuresSupp: 0, retenues: 0, netAPayer: 0,
+  });
+
+  const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
+  const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await rhService.createPaie(form);
+      onSaved(form);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-base" style={{ color: c.textPrimary }}>Saisir un bulletin de paie</h3>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <RhField label="Conducteur">
+            <select className={inp} style={inpStyle} value={form.chauffeurId}
+              onChange={e => setForm(f => ({ ...f, chauffeurId: e.target.value }))}>
+              {drivers.map(d => <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>)}
+            </select>
+          </RhField>
+          <RhField label="Mois">
+            <input type="month" className={inp} style={inpStyle} value={form.mois}
+              onChange={e => setForm(f => ({ ...f, mois: e.target.value }))} />
+          </RhField>
+          <div className="grid grid-cols-2 gap-3">
+            <RhField label="Salaire base">
+              <input type="number" className={inp} style={inpStyle} value={form.salaireBase}
+                onChange={e => setForm(f => ({ ...f, salaireBase: Number(e.target.value) }))} />
+            </RhField>
+            <RhField label="Prime km">
+              <input type="number" className={inp} style={inpStyle} value={form.primeKm ?? 0}
+                onChange={e => setForm(f => ({ ...f, primeKm: Number(e.target.value) }))} />
+            </RhField>
+            <RhField label="Prime rend.">
+              <input type="number" className={inp} style={inpStyle} value={form.primeRendement ?? 0}
+                onChange={e => setForm(f => ({ ...f, primeRendement: Number(e.target.value) }))} />
+            </RhField>
+            <RhField label="Heures supp.">
+              <input type="number" className={inp} style={inpStyle} value={form.heuresSupp ?? 0}
+                onChange={e => setForm(f => ({ ...f, heuresSupp: Number(e.target.value) }))} />
+            </RhField>
+            <RhField label="Retenues">
+              <input type="number" className={inp} style={inpStyle} value={form.retenues ?? 0}
+                onChange={e => setForm(f => ({ ...f, retenues: Number(e.target.value) }))} />
+            </RhField>
+            <RhField label="Net à payer">
+              <input type="number" className={inp} style={inpStyle} value={form.netAPayer}
+                onChange={e => setForm(f => ({ ...f, netAPayer: Number(e.target.value) }))} />
+            </RhField>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+              style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+              {saving ? 'Enregistrement…' : 'Saisir'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Driver Detail Panel ──────────────────────────────────────────────────────
 
 function DriverPanel({ driverId, onClose, drivers, contratsConducteurs, paieMensuelle, formations, conges }: {
   driverId: string; onClose: () => void;
@@ -293,20 +717,100 @@ export default function RH() {
   const [activeTab, setActiveTab] = useState<TabRH>('conducteurs');
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
 
-  const { data: drivers,             loading: ld, error: ed } = useDrivers();
+  const { data: drivers,             loading: ld, error: ed, refetch: refetchDrivers } = useDrivers();
   const { data: contratsConducteurs, loading: lc, error: ec } = useContratsConducteurs();
-  const { data: conges,              loading: lcg, error: ecg } = useConges();
-  const { data: formations,          loading: lf, error: ef } = useFormations();
-  const { data: paieMensuelle,       loading: lp, error: ep } = usePaieMensuelle();
+  const { data: conges,              loading: lcg, error: ecg, refetch: refetchConges } = useConges();
+  const { data: formations,          loading: lf, error: ef,  refetch: refetchFormations } = useFormations();
+  const { data: paieMensuelle,       loading: lp, error: ep,  refetch: refetchPaie } = usePaieMensuelle();
 
   const loading = ld || lc || lcg || lf || lp;
   const error   = ed || ec || ecg || ef || ep;
 
-  const safeDrv  = drivers             ?? [];
+  // Local state
+  const [localDrivers,    setLocalDrivers]    = useState<Driver[]>([]);
+  const [localConges,     setLocalConges]     = useState<Conge[]>([]);
+  const [localFormations, setLocalFormations] = useState<Formation[]>([]);
+  const [localPaie,       setLocalPaie]       = useState<PaieMensuelle[]>([]);
+
+  useEffect(() => { if (drivers)        setLocalDrivers(drivers); },    [drivers]);
+  useEffect(() => { if (conges)         setLocalConges(conges); },      [conges]);
+  useEffect(() => { if (formations)     setLocalFormations(formations); },[formations]);
+  useEffect(() => { if (paieMensuelle)  setLocalPaie(paieMensuelle); }, [paieMensuelle]);
+
   const safeCt   = contratsConducteurs ?? [];
-  const safeCg   = conges              ?? [];
-  const safeFm   = formations          ?? [];
-  const safePaie = paieMensuelle       ?? [];
+
+  // CRUD state — Drivers
+  const [showDriverModal,  setShowDriverModal]  = useState(false);
+  const [editDriverId,     setEditDriverId]     = useState<string | null>(null);
+  const [deleteDriverId,   setDeleteDriverId]   = useState<string | null>(null);
+  const [deletingDriver,   setDeletingDriver]   = useState(false);
+
+  // CRUD state — Congés
+  const [showCongeModal,   setShowCongeModal]   = useState(false);
+  const [editCongeId,      setEditCongeId]      = useState<string | null>(null);
+  const [deleteCongeId,    setDeleteCongeId]    = useState<string | null>(null);
+  const [deletingConge,    setDeletingConge]    = useState(false);
+
+  // CRUD state — Formations
+  const [showFormationModal, setShowFormationModal] = useState(false);
+  const [editFormationId,    setEditFormationId]    = useState<string | null>(null);
+  const [deleteFormationId,  setDeleteFormationId]  = useState<string | null>(null);
+  const [deletingFormation,  setDeletingFormation]  = useState(false);
+
+  // CRUD state — Paie
+  const [showPaieModal,    setShowPaieModal]    = useState(false);
+  const [deletePaieKey,    setDeletePaieKey]    = useState<{ chauffeurId: string; mois: string } | null>(null);
+  const [deletingPaie,     setDeletingPaie]     = useState(false);
+
+  const editDriver    = localDrivers.find(d => d.id === editDriverId);
+  const editConge     = localConges.find(cg => cg.id === editCongeId);
+  const editFormation = localFormations.find(f => f.id === editFormationId);
+
+  // Handlers
+  const handleDriverSaved = (d: Driver) => {
+    setLocalDrivers(prev => editDriverId ? prev.map(x => x.id === d.id ? d : x) : [d, ...prev]);
+    setShowDriverModal(false); setEditDriverId(null); refetchDrivers();
+  };
+  const handleDriverDelete = async () => {
+    if (!deleteDriverId) return; setDeletingDriver(true);
+    try { await driverService.delete(deleteDriverId); setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId)); setDeleteDriverId(null); refetchDrivers(); }
+    finally { setDeletingDriver(false); }
+  };
+
+  const handleCongeSaved = (cg: Conge) => {
+    setLocalConges(prev => editCongeId ? prev.map(x => x.id === cg.id ? cg : x) : [cg, ...prev]);
+    setShowCongeModal(false); setEditCongeId(null); refetchConges();
+  };
+  const handleCongeDelete = async () => {
+    if (!deleteCongeId) return; setDeletingConge(true);
+    try { await rhService.deleteConge(deleteCongeId); setLocalConges(prev => prev.filter(cg => cg.id !== deleteCongeId)); setDeleteCongeId(null); refetchConges(); }
+    finally { setDeletingConge(false); }
+  };
+
+  const handleFormationSaved = (fm: Formation) => {
+    setLocalFormations(prev => editFormationId ? prev.map(x => x.id === fm.id ? fm : x) : [fm, ...prev]);
+    setShowFormationModal(false); setEditFormationId(null); refetchFormations();
+  };
+  const handleFormationDelete = async () => {
+    if (!deleteFormationId) return; setDeletingFormation(true);
+    try { await rhService.deleteFormation(deleteFormationId); setLocalFormations(prev => prev.filter(f => f.id !== deleteFormationId)); setDeleteFormationId(null); refetchFormations(); }
+    finally { setDeletingFormation(false); }
+  };
+
+  const handlePaieSaved = (p: PaieInput) => {
+    const newEntry: PaieMensuelle = { chauffeurId: p.chauffeurId, mois: p.mois, salaireBase: p.salaireBase, primeKm: p.primeKm ?? 0, primeRendement: p.primeRendement ?? 0, heuresSupp: p.heuresSupp ?? 0, retenues: p.retenues ?? 0, netAPayer: p.netAPayer };
+    setLocalPaie(prev => [newEntry, ...prev]); setShowPaieModal(false); refetchPaie();
+  };
+  const handlePaieDelete = async () => {
+    if (!deletePaieKey) return; setDeletingPaie(true);
+    try { await rhService.deletePaie(deletePaieKey.chauffeurId, deletePaieKey.mois); setLocalPaie(prev => prev.filter(p => !(p.chauffeurId === deletePaieKey.chauffeurId && p.mois === deletePaieKey.mois))); setDeletePaieKey(null); refetchPaie(); }
+    finally { setDeletingPaie(false); }
+  };
+
+  const safeDrv  = localDrivers;
+  const safeCg   = localConges;
+  const safeFm   = localFormations;
+  const safePaie = localPaie;
 
   // KPIs
   const actifs          = safeDrv.filter(d => d.status === 'actif').length;
@@ -391,8 +895,13 @@ export default function RH() {
             )}
 
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Liste des conducteurs</span>
+                <button onClick={() => { setEditDriverId(null); setShowDriverModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -469,10 +978,16 @@ export default function RH() {
                           <td className="px-4 py-3 text-sm font-mono" style={{ color: c.textSecondary }}>
                             {d.kmTotal.toLocaleString()} km
                           </td>
-                          <td className="px-4 py-3">
-                            <button className="flex items-center gap-1 text-xs" style={{ color: c.accent }}>
-                              Voir <ChevronRight size={12} />
-                            </button>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => setSelectedDriver(d.id)} style={{ color: c.accent }}>
+                                <ChevronRight size={13} />
+                              </button>
+                              <button onClick={() => { setEditDriverId(d.id); setShowDriverModal(true); }}
+                                style={{ color: c.accent }}><Pencil size={13} /></button>
+                              <button onClick={() => setDeleteDriverId(d.id)}
+                                style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -502,14 +1017,19 @@ export default function RH() {
             </div>
 
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Demandes de congés</span>
+                <button onClick={() => { setEditCongeId(null); setShowCongeModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                      {['Conducteur', 'Type', 'Période', 'Durée', 'Motif', 'Statut'].map(h => (
+                      {['Conducteur', 'Type', 'Période', 'Durée', 'Motif', 'Statut', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                           style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
@@ -540,6 +1060,14 @@ export default function RH() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge label={cg.statut} className={congeStatutColor[cg.statut]} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => { setEditCongeId(cg.id); setShowCongeModal(true); }}
+                                style={{ color: c.accent }}><Pencil size={13} /></button>
+                              <button onClick={() => setDeleteCongeId(cg.id)}
+                                style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -602,16 +1130,21 @@ export default function RH() {
 
             {/* Tableau formations */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>
                   Toutes les formations ({safeFm.length})
                 </span>
+                <button onClick={() => { setEditFormationId(null); setShowFormationModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Nouveau
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                      {['Conducteur', 'Formation', 'Organisme', 'Date', 'Durée', 'Certificat', 'Expiration'].map(h => (
+                      {['Conducteur', 'Formation', 'Organisme', 'Date', 'Durée', 'Certificat', 'Expiration', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                           style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
@@ -643,6 +1176,14 @@ export default function RH() {
                             {expJours !== null && expJours < 365 && (
                               <div>{expJours < 0 ? `Expiré ${Math.abs(expJours)}j` : `dans ${expJours}j`}</div>
                             )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => { setEditFormationId(f.id); setShowFormationModal(true); }}
+                                style={{ color: c.accent }}><Pencil size={13} /></button>
+                              <button onClick={() => setDeleteFormationId(f.id)}
+                                style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -682,14 +1223,19 @@ export default function RH() {
 
             {/* Table paie */}
             <div className="glass-card overflow-hidden">
-              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${c.border}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
                 <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Bulletin de paie — Mai 2025</span>
+                <button onClick={() => setShowPaieModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                  <Plus size={13} /> Saisir
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                      {['Conducteur', 'Base', 'Prime km', 'Prime rend.', 'Heures supp.', 'Retenues', 'Net à payer'].map(h => (
+                      {['Conducteur', 'Base', 'Prime km', 'Prime rend.', 'Heures supp.', 'Retenues', 'Net à payer', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                           style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                       ))}
@@ -715,6 +1261,10 @@ export default function RH() {
                             <span className="text-sm font-bold" style={{ color: '#00e676' }}>
                               {p.netAPayer.toLocaleString()} MAD
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => setDeletePaieKey({ chauffeurId: p.chauffeurId, mois: p.mois })}
+                              style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
                           </td>
                         </tr>
                       );
@@ -784,6 +1334,117 @@ export default function RH() {
           formations={safeFm}
           conges={safeCg}
         />
+      )}
+
+      {showDriverModal && (
+        <DriverModal
+          initial={editDriverId ? editDriver : undefined}
+          onClose={() => { setShowDriverModal(false); setEditDriverId(null); }}
+          onSaved={handleDriverSaved}
+        />
+      )}
+
+      {showCongeModal && (
+        <CongeModal
+          initial={editCongeId ? editConge : undefined}
+          drivers={safeDrv}
+          onClose={() => { setShowCongeModal(false); setEditCongeId(null); }}
+          onSaved={handleCongeSaved}
+        />
+      )}
+
+      {showFormationModal && (
+        <FormationModal
+          initial={editFormationId ? editFormation : undefined}
+          drivers={safeDrv}
+          onClose={() => { setShowFormationModal(false); setEditFormationId(null); }}
+          onSaved={handleFormationSaved}
+        />
+      )}
+
+      {showPaieModal && (
+        <PaieModal
+          drivers={safeDrv}
+          onClose={() => setShowPaieModal(false)}
+          onSaved={handlePaieSaved}
+        />
+      )}
+
+      {/* Delete confirms */}
+      {deleteDriverId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer le conducteur ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteDriverId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleDriverDelete} disabled={deletingDriver} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingDriver ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteCongeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer la demande de congé ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteCongeId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleCongeDelete} disabled={deletingConge} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingConge ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteFormationId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer la formation ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteFormationId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleFormationDelete} disabled={deletingFormation} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingFormation ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletePaieKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer le bulletin ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeletePaieKey(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handlePaieDelete} disabled={deletingPaie} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingPaie ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

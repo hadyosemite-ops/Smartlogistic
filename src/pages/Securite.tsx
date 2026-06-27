@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ShieldCheck, TrendingDown, TrendingUp, Bell, Eye, X, Activity,
   ClipboardCheck, Plus, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle,
-  BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine,
+  BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine, Trash2,
 } from 'lucide-react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -23,6 +23,7 @@ import {
   useChecklistItems, useInspections, useActions,
   useConformiteTrend, useQseData,
 } from '../hooks/useFleetData';
+import { checklistService } from '../services/checklistService';
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
 
@@ -522,7 +523,10 @@ function InspectionForm({ onClose, onSubmit, vehicles, drivers, checklistItems }
 
 // ─── Action Row ───────────────────────────────────────────────────────────────
 
-function ActionRow({ action, vehicles, drivers }: { action: ActionCorrectrice; vehicles: Vehicle[]; drivers: Driver[] }) {
+function ActionRow({ action, vehicles, drivers, onDelete }: {
+  action: ActionCorrectrice; vehicles: Vehicle[]; drivers: Driver[];
+  onDelete?: (id: string) => void;
+}) {
   const { c } = useTheme();
   const v = vehicles.find(x => x.id === action.vehiculeId);
   const d = drivers.find(x => x.id === action.chauffeurId);
@@ -546,8 +550,13 @@ function ActionRow({ action, vehicles, drivers }: { action: ActionCorrectrice; v
       </div>
       <div className="text-right text-xs flex-shrink-0" style={{ color: c.textMuted, minWidth: 72 }}>
         <Calendar size={11} className="inline mr-1" />{action.dateEcheance}
-        <div className="mt-1" style={{ color: c.textFaint }}>{action.responsable.split(' ').slice(-1)[0]}</div>
+        <div className="mt-1" style={{ color: c.textFaint }}>{action.responsable?.split(' ').slice(-1)[0]}</div>
       </div>
+      {onDelete && (
+        <button onClick={() => onDelete(action.id)} style={{ color: '#ff4444', flexShrink: 0 }}>
+          <Trash2 size={13} />
+        </button>
+      )}
     </div>
   );
 }
@@ -582,7 +591,7 @@ export default function Securite() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [alertFilter, setAlertFilter] = useState<'all' | 'critique' | 'warning' | 'info'>('all');
 
-  // Checklist state (optimistic: start empty, populated from remote)
+  // Checklist state
   const [allInspections, setAllInspections] = useState<Inspection[]>([]);
   const [allActions, setAllActions]         = useState<ActionCorrectrice[]>([]);
   const [showForm, setShowForm]             = useState(false);
@@ -590,19 +599,43 @@ export default function Securite() {
   const [prioriteFilter, setPrioriteFilter] = useState<ActionPriorite | 'all'>('all');
   const [selectedInspId, setSelectedInspId] = useState<string | null>(null);
   const [diagramInsp, setDiagramInsp]       = useState<Inspection | null>(null);
-  const [inspSynced, setInspSynced]         = useState(false);
 
-  // Sync inspections/actions from remote once
-  if (!inspSynced && inspectionsData) {
-    setAllInspections(inspectionsData);
-    setAllActions(actionsData ?? []);
-    setInspSynced(true);
-  }
+  // Sync from remote
+  useEffect(() => { if (inspectionsData) setAllInspections(inspectionsData); }, [inspectionsData]);
+  useEffect(() => { if (actionsData)     setAllActions(actionsData); },         [actionsData]);
+
+  // Delete state
+  const [deleteInspId,   setDeleteInspId]   = useState<string | null>(null);
+  const [deletingInsp,   setDeletingInsp]   = useState(false);
+  const [deleteActionId, setDeleteActionId] = useState<string | null>(null);
+  const [deletingAction, setDeletingAction] = useState(false);
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
     setAllActions(prev => [...actions, ...prev]);
     setShowForm(false);
+  };
+
+  const handleDeleteInsp = async () => {
+    if (!deleteInspId) return;
+    setDeletingInsp(true);
+    try {
+      await checklistService.deleteInspection(deleteInspId);
+      setAllInspections(prev => prev.filter(i => i.id !== deleteInspId));
+      // also remove related actions
+      setAllActions(prev => prev.filter(a => a.inspectionId !== deleteInspId));
+      setDeleteInspId(null);
+    } finally { setDeletingInsp(false); }
+  };
+
+  const handleDeleteAction = async () => {
+    if (!deleteActionId) return;
+    setDeletingAction(true);
+    try {
+      await checklistService.deleteAction(deleteActionId);
+      setAllActions(prev => prev.filter(a => a.id !== deleteActionId));
+      setDeleteActionId(null);
+    } finally { setDeletingAction(false); }
   };
 
   const tooltipStyle = {
@@ -920,7 +953,7 @@ export default function Securite() {
               <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
                 {filteredActions.length === 0
                   ? <div className="px-5 py-8 text-center text-sm" style={{ color: c.textMuted }}>Aucune action correspondante</div>
-                  : filteredActions.map(a => <ActionRow key={a.id} action={a} vehicles={safeVehicles} drivers={safeDrivers} />)}
+                  : filteredActions.map(a => <ActionRow key={a.id} action={a} vehicles={safeVehicles} drivers={safeDrivers} onDelete={id => setDeleteActionId(id)} />)}
               </div>
             </div>
 
@@ -957,6 +990,13 @@ export default function Securite() {
                           style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}` }}
                           onClick={e => { e.stopPropagation(); setDiagramInsp(insp); }}>
                           <ScanLine size={12} style={{ color: c.accent }} />
+                        </button>
+                        <button
+                          className="p-1 rounded-lg transition-all"
+                          title="Supprimer"
+                          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.3)' }}
+                          onClick={e => { e.stopPropagation(); setDeleteInspId(insp.id); }}>
+                          <Trash2 size={12} style={{ color: '#ff4444' }} />
                         </button>
                       </div>
                       {isSelected && selectedInsp && (
@@ -1012,6 +1052,44 @@ export default function Securite() {
           drivers={safeDrivers}
           checklistItems={safeChecklist}
         />
+      )}
+
+      {deleteInspId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer l'inspection ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Les actions correctives associées seront également supprimées.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteInspId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleDeleteInsp} disabled={deletingInsp} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingInsp ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteActionId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer l'action corrective ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>Cette action est irréversible.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteActionId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleDeleteAction} disabled={deletingAction} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingAction ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

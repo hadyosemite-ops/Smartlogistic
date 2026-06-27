@@ -23,6 +23,13 @@ function mapRow(r: Record<string, unknown>): Vehicle {
   };
 }
 
+export type VehicleInput = {
+  immatriculation: string; marque: string; modele: string;
+  annee: number; type: string; status: Vehicle['status'];
+  kmActuel?: number; prochaineVidange?: number;
+  prochainCT?: string; carburant?: number;
+};
+
 export const vehicleService = {
   async getAll(): Promise<Vehicle[]> {
     const { data, error } = await supabase.from('vehicles').select('*').order('immatriculation');
@@ -36,11 +43,48 @@ export const vehicleService = {
     return data ? mapRow(data) : null;
   },
 
-  async update(id: string, fields: Partial<Pick<Vehicle, 'status' | 'kmActuel'>>): Promise<void> {
+  async create(input: VehicleInput): Promise<Vehicle> {
+    const id = `v${Date.now()}`;
+    const row = {
+      id,
+      immatriculation:   input.immatriculation,
+      marque:            input.marque,
+      modele:            input.modele,
+      annee:             input.annee,
+      type:              input.type,
+      status:            input.status,
+      km_actuel:         input.kmActuel ?? 0,
+      prochaine_vidange: input.prochaineVidange ?? 0,
+      prochain_ct:       input.prochainCT ?? null,
+      carburant:         input.carburant ?? null,
+      score_etat:        80,
+      chauffeur_id:      null,
+      gps_lat:           null,
+      gps_lng:           null,
+    };
+    const { data, error } = await supabase.from('vehicles').insert(row).select().single();
+    if (error) throw error;
+    return mapRow(data);
+  },
+
+  async update(id: string, fields: Partial<VehicleInput>): Promise<void> {
     const mapped: Record<string, unknown> = {};
-    if (fields.status   !== undefined) mapped.status    = fields.status;
-    if (fields.kmActuel !== undefined) mapped.km_actuel = fields.kmActuel;
+    if (fields.immatriculation  !== undefined) mapped.immatriculation   = fields.immatriculation;
+    if (fields.marque           !== undefined) mapped.marque            = fields.marque;
+    if (fields.modele           !== undefined) mapped.modele            = fields.modele;
+    if (fields.annee            !== undefined) mapped.annee             = fields.annee;
+    if (fields.type             !== undefined) mapped.type              = fields.type;
+    if (fields.status           !== undefined) mapped.status            = fields.status;
+    if (fields.kmActuel         !== undefined) mapped.km_actuel         = fields.kmActuel;
+    if (fields.prochaineVidange !== undefined) mapped.prochaine_vidange = fields.prochaineVidange;
+    if (fields.prochainCT       !== undefined) mapped.prochain_ct       = fields.prochainCT;
+    if (fields.carburant        !== undefined) mapped.carburant         = fields.carburant;
     const { error } = await supabase.from('vehicles').update(mapped).eq('id', id);
+    if (error) throw error;
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
     if (error) throw error;
   },
 };
