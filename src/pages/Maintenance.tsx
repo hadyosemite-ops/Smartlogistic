@@ -4,6 +4,7 @@ import {
   X, ChevronRight, Plus, Pencil, Trash2
 } from 'lucide-react';
 import { maintenanceService } from '../services/maintenanceService';
+import { vehicleService } from '../services/vehicleService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
@@ -402,6 +403,120 @@ function NouvelleInterventionModal({ onClose, onSave, vehicles, initial }: {
   );
 }
 
+// ─── Vehicle Edit Modal ───────────────────────────────────────────────────────
+
+function VehicleEditModal({ vehicle, onSaved, onClose }: {
+  vehicle: Vehicle | null; onSaved: (v: Vehicle) => void; onClose: () => void;
+}) {
+  const { c } = useTheme();
+  const isNew = !vehicle;
+  const [immat,   setImmat]   = useState(vehicle?.immatriculation ?? '');
+  const [marque,  setMarque]  = useState(vehicle?.marque ?? '');
+  const [modele,  setModele]  = useState(vehicle?.modele ?? '');
+  const [annee,   setAnnee]   = useState(String(vehicle?.annee ?? new Date().getFullYear()));
+  const [type,    setType]    = useState(vehicle?.type ?? 'Camion');
+  const [status,  setStatus]  = useState<Vehicle['status']>(vehicle?.status ?? 'actif');
+  const [km,      setKm]      = useState(String(vehicle?.kmActuel ?? 0));
+  const [vidange, setVidange] = useState(String(vehicle?.prochaineVidange ?? 0));
+  const [ct,      setCt]      = useState(vehicle?.prochainCT ?? '');
+  const [score,   setScore]   = useState(vehicle?.scoreEtat ?? 80);
+  const [saving,  setSaving]  = useState(false);
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      if (isNew) {
+        const created = await vehicleService.create({
+          immatriculation: immat, marque, modele, annee: +annee, type,
+          status, kmActuel: +km, prochaineVidange: +vidange, prochainCT: ct || undefined,
+        });
+        onSaved(created);
+      } else {
+        await vehicleService.update(vehicle.id, {
+          immatriculation: immat, marque, modele, annee: +annee, type,
+          status, kmActuel: +km, prochaineVidange: +vidange, prochainCT: ct || undefined,
+        });
+        onSaved({ ...vehicle, immatriculation: immat, marque, modele, annee: +annee, type,
+          status, kmActuel: +km, prochaineVidange: +vidange, prochainCT: ct, scoreEtat: score });
+      }
+    } finally { setSaving(false); }
+  };
+
+  const F = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div>
+      <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>{label}</label>
+      {children}
+    </div>
+  );
+  const inp = "w-full px-3 py-2 rounded-lg text-sm";
+  const inpStyle = { background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div className="glass-card w-full max-w-lg p-6 mx-4 rounded-2xl max-h-[90vh] overflow-y-auto"
+        style={{ border: `1px solid ${c.borderStrong}` }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-semibold" style={{ color: c.textPrimary }}>
+              {isNew ? 'Nouveau véhicule' : `Modifier — ${vehicle.immatriculation}`}
+            </h3>
+            {!isNew && <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{vehicle.marque} {vehicle.modele}</div>}
+          </div>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <F label="IMMATRICULATION">
+            <input value={immat} onChange={e => setImmat(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="STATUT">
+            <select value={status} onChange={e => setStatus(e.target.value as Vehicle['status'])} className={inp} style={inpStyle}>
+              <option value="actif">Actif</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="inactif">Inactif</option>
+            </select>
+          </F>
+          <F label="MARQUE">
+            <input value={marque} onChange={e => setMarque(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="MODÈLE">
+            <input value={modele} onChange={e => setModele(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="ANNÉE">
+            <input type="number" value={annee} onChange={e => setAnnee(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="TYPE">
+            <input value={type} onChange={e => setType(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="KM ACTUEL">
+            <input type="number" value={km} onChange={e => setKm(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="PROCH. VIDANGE (km)">
+            <input type="number" value={vidange} onChange={e => setVidange(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label="PROCHAIN CT">
+            <input type="date" value={ct} onChange={e => setCt(e.target.value)} className={inp} style={inpStyle} />
+          </F>
+          <F label={`SCORE ÉTAT : ${score}/100`}>
+            <input type="range" min={0} max={100} value={score}
+              onChange={e => setScore(+e.target.value)} className="w-full mt-2 accent-cyan-400" />
+          </F>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>Annuler</button>
+          <button onClick={handleSubmit} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg,#00d4ff,#0077aa)', color: '#020817' }}>
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function Maintenance() {
@@ -422,11 +537,31 @@ export default function Maintenance() {
   const error   = ev || ei || ea || ec;
 
   const [localInterventions, setLocalInterventions] = useState<Intervention[]>([]);
-  useEffect(() => {
-    if (interventionsData) setLocalInterventions(interventionsData);
-  }, [interventionsData]);
+  useEffect(() => { if (interventionsData) setLocalInterventions(interventionsData); }, [interventionsData]);
 
-  const safeVehicles    = vehicles          ?? [];
+  const [localVehicles, setLocalVehicles] = useState<Vehicle[]>([]);
+  useEffect(() => { if (vehicles) setLocalVehicles(vehicles); }, [vehicles]);
+
+  const [editVehicleId,   setEditVehicleId]   = useState<string | null>(null);
+  const [deleteVehicleId, setDeleteVehicleId] = useState<string | null>(null);
+  const [showNewVehicle,  setShowNewVehicle]  = useState(false);
+
+  const handleVehicleSaved = (v: Vehicle) => {
+    setLocalVehicles(prev => {
+      const exists = prev.some(x => x.id === v.id);
+      return exists ? prev.map(x => x.id === v.id ? v : x) : [v, ...prev];
+    });
+    setEditVehicleId(null);
+    setShowNewVehicle(false);
+  };
+  const handleDeleteVehicle = () => {
+    if (!deleteVehicleId) return;
+    const id = deleteVehicleId; setDeleteVehicleId(null);
+    setLocalVehicles(prev => prev.filter(v => v.id !== id));
+    vehicleService.delete(id).catch(e => console.error('delete vehicle', e));
+  };
+
+  const safeVehicles    = localVehicles;
   const safeMAlerts     = maintenanceAlerts ?? [];
   const safeCostByMonth = costByMonth       ?? [];
 
@@ -493,6 +628,15 @@ export default function Maintenance() {
         {/* ── TAB 1 : FLOTTE ── */}
         {activeTab === 'flotte' && (
           <div className="space-y-4">
+            {/* Header row */}
+            <div className="flex justify-end">
+              <button onClick={() => setShowNewVehicle(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg,#00d4ff,#0077aa)', color: '#020817' }}>
+                <Plus size={15} /> Nouveau véhicule
+              </button>
+            </div>
+
             {/* Alerts banner */}
             {safeMAlerts.filter(a => a.urgence === 'critique').length > 0 && (
               <div className="px-4 py-3 rounded-xl flex items-center gap-3"
@@ -504,81 +648,83 @@ export default function Maintenance() {
               </div>
             )}
 
-            {/* Vehicle cards grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {safeVehicles.map(v => {
-                const vAlerts    = safeMAlerts.filter(a => a.vehiculeId === v.id);
-                const hasCritical = vAlerts.some(a => a.urgence === 'critique');
-                const scoreClr   = v.scoreEtat >= 80 ? '#00e676' : v.scoreEtat >= 60 ? '#ffb300' : '#ff4444';
-                const kmToVidange = v.prochaineVidange - v.kmActuel;
-
-                return (
-                  <div key={v.id}
-                    onClick={() => setSelectedVehicle(v.id)}
-                    className={`glass-card p-4 cursor-pointer transition-all ${hasCritical ? 'glow-danger' : ''}`}
-                    style={{ borderColor: hasCritical ? 'rgba(255,68,68,0.3)' : undefined }}>
-
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="font-mono text-sm font-bold" style={{ color: c.accent }}>{v.immatriculation}</div>
-                        <div className="text-xs" style={{ color: c.textSecondary }}>{v.marque} {v.modele}</div>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                        v.status === 'actif' ? 'text-[#00e676] bg-[#00e67610] border-[#00e67640]' :
-                        v.status === 'maintenance' ? 'text-[#ff4444] bg-[#ff444410] border-[#ff444440]' :
-                        'text-[#ffb300] bg-[#ffb30010] border-[#ffb30040]'
-                      }`}>{v.status}</span>
-                    </div>
-
-                    {/* Score bar */}
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span style={{ color: c.textMuted }}>État général</span>
-                        <span className="font-bold" style={{ color: scoreClr }}>{v.scoreEtat}/100</span>
-                      </div>
-                      <div className="h-1.5 rounded-full" style={{ background: c.border }}>
-                        <div className="h-full rounded-full"
-                          style={{ width: `${v.scoreEtat}%`, background: scoreClr }} />
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span style={{ color: c.textMuted }}>Kilométrage</span>
-                        <span style={{ color: c.textPrimary }}>{v.kmActuel.toLocaleString()} km</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span style={{ color: c.textMuted }}>Proch. vidange</span>
-                        <span style={{ color: kmToVidange < 2000 ? '#ffb300' : c.textPrimary }}>
-                          {kmToVidange > 0 ? `dans ${kmToVidange.toLocaleString()} km` : 'Dépassée'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span style={{ color: c.textMuted }}>CT</span>
-                        <span style={{ color: c.textPrimary }}>{v.prochainCT}</span>
-                      </div>
-                    </div>
-
-                    {/* Alerts */}
-                    {vAlerts.length > 0 && (
-                      <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${c.border}` }}>
-                        {vAlerts.map((a, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs mb-1">
-                            <span style={{ color: urgenceColor[a.urgence] }}>●</span>
-                            <span style={{ color: c.textSecondary }}>{a.message}</span>
+            {/* Vehicle list table */}
+            <div className="glass-card overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${c.border}` }}>
+                    {['Immatriculation', 'Marque / Modèle', 'État', 'Km actuel', 'Proch. vidange', 'CT', 'Statut', 'Alertes', ''].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                        style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {safeVehicles.map(v => {
+                    const vAlerts     = safeMAlerts.filter(a => a.vehiculeId === v.id);
+                    const hasCritical = vAlerts.some(a => a.urgence === 'critique');
+                    const scoreClr    = v.scoreEtat >= 80 ? '#00e676' : v.scoreEtat >= 60 ? '#ffb300' : '#ff4444';
+                    const kmToVidange = v.prochaineVidange - v.kmActuel;
+                    return (
+                      <tr key={v.id} className="table-row-hover cursor-pointer"
+                        style={{ borderBottom: `1px solid ${c.borderFaint}`, background: hasCritical ? 'rgba(255,68,68,0.03)' : undefined }}
+                        onClick={() => setSelectedVehicle(v.id)}>
+                        <td className="px-4 py-3">
+                          <div className="font-mono text-sm font-bold" style={{ color: c.accent }}>{v.immatriculation}</div>
+                          <div className="text-xs" style={{ color: c.textMuted }}>{v.annee}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium" style={{ color: c.textPrimary }}>{v.marque}</div>
+                          <div className="text-xs" style={{ color: c.textMuted }}>{v.modele}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full" style={{ background: c.border }}>
+                              <div className="h-full rounded-full" style={{ width: `${v.scoreEtat}%`, background: scoreClr }} />
+                            </div>
+                            <span className="text-xs font-bold" style={{ color: scoreClr }}>{v.scoreEtat}</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-end mt-3 text-xs" style={{ color: c.textMuted }}>
-                      Voir détail <ChevronRight size={12} className="ml-0.5" />
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                        <td className="px-4 py-3 text-sm" style={{ color: c.textPrimary }}>{v.kmActuel.toLocaleString()} km</td>
+                        <td className="px-4 py-3 text-xs"
+                          style={{ color: kmToVidange < 2000 ? '#ffb300' : kmToVidange < 0 ? '#ff4444' : c.textPrimary }}>
+                          {kmToVidange > 0 ? `dans ${kmToVidange.toLocaleString()} km` : 'Dépassée'}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: c.textPrimary }}>{v.prochainCT ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                            v.status === 'actif' ? 'text-[#00e676] bg-[#00e67610] border-[#00e67640]' :
+                            v.status === 'maintenance' ? 'text-[#ff4444] bg-[#ff444410] border-[#ff444440]' :
+                            'text-[#ffb300] bg-[#ffb30010] border-[#ffb30040]'
+                          }`}>{v.status}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {vAlerts.length > 0
+                            ? <div className="flex flex-col gap-0.5">
+                                {vAlerts.slice(0, 2).map((a, i) => (
+                                  <div key={i} className="flex items-center gap-1 text-xs">
+                                    <span style={{ color: urgenceColor[a.urgence] }}>●</span>
+                                    <span className="truncate max-w-[140px]" style={{ color: c.textMuted }}>{a.message}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            : <span className="text-xs" style={{ color: c.textFaint }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setSelectedVehicle(v.id)}
+                              style={{ color: c.textMuted }}><ChevronRight size={14} /></button>
+                            <button onClick={() => setEditVehicleId(v.id)}
+                              style={{ color: c.accent }}><Pencil size={13} /></button>
+                            <button onClick={() => setDeleteVehicleId(v.id)}
+                              style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -807,6 +953,48 @@ export default function Maintenance() {
           </div>
         </div>
       )}
+      {showNewVehicle && (
+        <VehicleEditModal
+          vehicle={null}
+          onSaved={handleVehicleSaved}
+          onClose={() => setShowNewVehicle(false)}
+        />
+      )}
+
+      {editVehicleId && (
+        <VehicleEditModal
+          vehicle={safeVehicles.find(v => v.id === editVehicleId) ?? null}
+          onSaved={handleVehicleSaved}
+          onClose={() => setEditVehicleId(null)}
+        />
+      )}
+
+      {deleteVehicleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="glass-card p-6 w-full max-w-sm mx-4" style={{ border: `1px solid ${c.dangerBorder}` }}>
+            <div className="flex items-center gap-3 mb-4">
+              <Trash2 size={20} style={{ color: c.danger }} />
+              <span className="font-semibold" style={{ color: c.textPrimary }}>Supprimer le véhicule ?</span>
+            </div>
+            <p className="text-sm mb-5" style={{ color: c.textSecondary }}>
+              {safeVehicles.find(v => v.id === deleteVehicleId)?.immatriculation} sera définitivement supprimé.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteVehicleId(null)} className="flex-1 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>
+                Annuler
+              </button>
+              <button onClick={handleDeleteVehicle}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: c.dangerBg, border: `1px solid ${c.dangerBorder}`, color: c.danger }}>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </DataState>
     </div>
   );

@@ -67,7 +67,7 @@ export const vehicleService = {
     return mapRow(data);
   },
 
-  async update(id: string, fields: Partial<VehicleInput>): Promise<void> {
+  async update(id: string, fields: Partial<VehicleInput & { chauffeurId: string | null }>): Promise<void> {
     const mapped: Record<string, unknown> = {};
     if (fields.immatriculation  !== undefined) mapped.immatriculation   = fields.immatriculation;
     if (fields.marque           !== undefined) mapped.marque            = fields.marque;
@@ -79,6 +79,7 @@ export const vehicleService = {
     if (fields.prochaineVidange !== undefined) mapped.prochaine_vidange = fields.prochaineVidange;
     if (fields.prochainCT       !== undefined) mapped.prochain_ct       = fields.prochainCT;
     if (fields.carburant        !== undefined) mapped.carburant         = fields.carburant;
+    if ('chauffeurId'           in fields)     mapped.chauffeur_id      = fields.chauffeurId;
     const { error } = await supabase.from('vehicles').update(mapped).eq('id', id);
     if (error) throw error;
   },

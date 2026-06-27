@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Truck, ShieldCheck, Wrench,
-  BarChart3, Users, FileText, Bell, Settings, ChevronRight,
+  BarChart3, Users, FileText, Bell, Settings, ChevronRight, Car,
 } from 'lucide-react';
 import { alerts } from '../../data/mock';
 import { useTheme } from '../../context/ThemeContext';
@@ -11,6 +11,7 @@ const unreadCount = alerts.filter(a => !a.lu).length;
 const nav = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard',        sub: 'Vue d\'ensemble' },
   { to: '/exploitation', icon: Truck,            label: 'Exploitation',     sub: 'Missions & Transport' },
+  { to: '/flotte',       icon: Car,              label: 'Flotte',           sub: 'Véhicules & Documents' },
   { to: '/securite',     icon: ShieldCheck,      label: 'Sécurité',         sub: 'Conducteurs & Alertes' },
   { to: '/maintenance',  icon: Wrench,           label: 'Maintenance',      sub: 'Véhicules & Entretien' },
   { to: '/controle',     icon: BarChart3,        label: 'Contrôle Gestion', sub: 'Coûts & Rentabilité' },

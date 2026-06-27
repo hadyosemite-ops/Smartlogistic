@@ -8,6 +8,7 @@ import Maintenance from './pages/Maintenance';
 import ControleGestion from './pages/ControleGestion';
 import RH from './pages/RH';
 import Administratif from './pages/Administratif';
+import Flotte from './pages/Flotte';
 
 function AppInner() {
   const { c } = useTheme();
@@ -24,6 +25,7 @@ function AppInner() {
             <Route path="/controle"      element={<ControleGestion />} />
             <Route path="/rh"            element={<RH />} />
             <Route path="/administratif" element={<Administratif />} />
+            <Route path="/flotte"        element={<Flotte />} />
           </Routes>
         </main>
       </div>
