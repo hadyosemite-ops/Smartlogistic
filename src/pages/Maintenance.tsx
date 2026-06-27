@@ -628,15 +628,6 @@ export default function Maintenance() {
         {/* ── TAB 1 : FLOTTE ── */}
         {activeTab === 'flotte' && (
           <div className="space-y-4">
-            {/* Header row */}
-            <div className="flex justify-end">
-              <button onClick={() => setShowNewVehicle(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg,#00d4ff,#0077aa)', color: '#020817' }}>
-                <Plus size={15} /> Nouveau véhicule
-              </button>
-            </div>
-
             {/* Alerts banner */}
             {safeMAlerts.filter(a => a.urgence === 'critique').length > 0 && (
               <div className="px-4 py-3 rounded-xl flex items-center gap-3"

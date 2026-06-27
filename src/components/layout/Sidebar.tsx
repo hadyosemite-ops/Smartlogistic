@@ -1,12 +1,11 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Truck, ShieldCheck, Wrench,
-  BarChart3, Users, FileText, Bell, Settings, ChevronRight, Car,
+  BarChart3, Users, FileText, Bell, Settings, ChevronRight, Car, X,
 } from 'lucide-react';
-import { alerts } from '../../data/mock';
 import { useTheme } from '../../context/ThemeContext';
-
-const unreadCount = alerts.filter(a => !a.lu).length;
+import { alertService } from '../../services/alertService';
 
 const nav = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard',        sub: 'Vue d\'ensemble' },
@@ -21,9 +20,21 @@ const nav = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
-  useTheme(); // keep ThemeProvider in tree; sidebar stays dark by design
+  useTheme();
 
-  // Sidebar keeps the dark brand look in both modes (professional consistency)
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    alertService.getAll().then(a => setAlertCount(a.length)).catch(() => {});
+  }, [pathname]); // refresh on nav
+
+  const handleClearAlerts = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await alertService.deleteAll().catch(() => {});
+    setAlertCount(0);
+  };
+
   const sidebarBg = 'linear-gradient(180deg, #050e1f 0%, #020817 100%)';
   const sidebarBorder = '#1e3a5f';
 
@@ -43,18 +54,28 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Alerts badge → Sécurité */}
-      <NavLink to="/securite"
-        className="mx-4 my-3 flex items-center justify-between px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
-        style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)', textDecoration: 'none' }}>
-        <div className="flex items-center gap-2">
-          <Bell size={14} style={{ color: '#ff4444' }} />
-          <span className="text-xs font-medium" style={{ color: '#ff8888' }}>Alertes actives</span>
+      {/* Alerts banner */}
+      {alertCount > 0 ? (
+        <div className="mx-4 my-3 flex items-center justify-between px-3 py-2 rounded-lg"
+          style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)' }}>
+          <NavLink to="/securite" className="flex items-center gap-2 flex-1" style={{ textDecoration: 'none' }}>
+            <Bell size={14} style={{ color: '#ff4444' }} />
+            <span className="text-xs font-medium" style={{ color: '#ff8888' }}>Alertes actives</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full ml-auto" style={{ background: '#ff4444', color: '#fff' }}>
+              {alertCount}
+            </span>
+          </NavLink>
+          <button onClick={handleClearAlerts} className="ml-2 p-0.5 rounded hover:opacity-70" title="Vider les alertes">
+            <X size={13} style={{ color: '#ff8888' }} />
+          </button>
         </div>
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#ff4444', color: '#fff' }}>
-          {unreadCount}
-        </span>
-      </NavLink>
+      ) : (
+        <div className="mx-4 my-3 flex items-center gap-2 px-3 py-2 rounded-lg"
+          style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.2)' }}>
+          <Bell size={14} style={{ color: '#00e676' }} />
+          <span className="text-xs font-medium" style={{ color: '#00e676' }}>Aucune alerte active</span>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
