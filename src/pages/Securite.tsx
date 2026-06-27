@@ -3,7 +3,7 @@ import {
   ShieldCheck, TrendingDown, TrendingUp, Bell, Eye, X, Activity,
   ClipboardCheck, Plus, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle,
-  BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine, Trash2,
+  BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine, Trash2, Pencil,
 } from 'lucide-react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -24,6 +24,7 @@ import {
   useConformiteTrend, useQseData,
 } from '../hooks/useFleetData';
 import { checklistService } from '../services/checklistService';
+import { driverService } from '../services/driverService';
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
 
@@ -561,6 +562,107 @@ function ActionRow({ action, vehicles, drivers, onDelete }: {
   );
 }
 
+// ─── Driver Edit Modal ────────────────────────────────────────────────────────
+
+function DriverEditModal({ driver, onSaved, onClose }: {
+  driver: Driver; onSaved: (d: Driver) => void; onClose: () => void;
+}) {
+  const { c } = useTheme();
+  const [status, setStatus]   = useState<Driver['status']>(driver.status);
+  const [scoreG, setScoreG]   = useState(driver.scoreGlobal);
+  const [scoreV, setScoreV]   = useState(driver.scoreVitesse);
+  const [scoreF, setScoreF]   = useState(driver.scoreFreinage);
+  const [scoreFt, setScoreFt] = useState(driver.scoreFatigue);
+  const [scoreD, setScoreD]   = useState(driver.scoreDistraction);
+  const [permis, setPermis]   = useState(driver.permisExpire);
+  const [visite, setVisite]   = useState(driver.visiteExpire);
+  const [saving, setSaving]   = useState(false);
+
+  const scoreRows: [string, number, (v: number) => void][] = [
+    ['Score global',            scoreG,  setScoreG],
+    ['Vitesse & accélération',  scoreV,  setScoreV],
+    ['Freinage',                scoreF,  setScoreF],
+    ['Gestion fatigue',         scoreFt, setScoreFt],
+    ['Distraction',             scoreD,  setScoreD],
+  ];
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      await driverService.update(driver.id, {
+        status, scoreGlobal: scoreG, scoreVitesse: scoreV,
+        scoreFreinage: scoreF, scoreFatigue: scoreFt, scoreDistraction: scoreD,
+        permisExpire: permis, visiteExpire: visite,
+      });
+      onSaved({ ...driver, status, scoreGlobal: scoreG, scoreVitesse: scoreV, scoreFreinage: scoreF, scoreFatigue: scoreFt, scoreDistraction: scoreD, permisExpire: permis, visiteExpire: visite });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="glass-card w-full max-w-md p-6 mx-4 rounded-2xl"
+        style={{ border: `1px solid ${c.borderStrong}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-semibold" style={{ color: c.textPrimary }}>Modifier — {driver.prenom} {driver.nom}</h3>
+            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{driver.matricule}</div>
+          </div>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>STATUT</label>
+            <select value={status} onChange={e => setStatus(e.target.value as Driver['status'])}
+              className="w-full px-3 py-2.5 rounded-lg text-sm"
+              style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+              <option value="actif">Actif</option>
+              <option value="repos">Repos</option>
+              <option value="conge">Congé</option>
+            </select>
+          </div>
+          {scoreRows.map(([label, val, set]) => (
+            <div key={label}>
+              <label className="text-xs font-semibold mb-1.5 flex justify-between" style={{ color: c.textMuted }}>
+                <span>{label.toUpperCase()}</span>
+                <span style={{ color: scoreColor(val) }}>{val}/100</span>
+              </label>
+              <input type="range" min={0} max={100} value={val}
+                onChange={e => set(+e.target.value)} className="w-full accent-cyan-400" />
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>EXP. PERMIS</label>
+              <input type="date" value={permis} onChange={e => setPermis(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg text-sm"
+                style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>VISITE MÉD.</label>
+              <input type="date" value={visite} onChange={e => setVisite(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg text-sm"
+                style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>Annuler</button>
+          <button onClick={handleSubmit} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg,#00d4ff,#0077aa)', color: '#020817' }}>
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type Tab = 'scoring' | 'checklist' | 'qse';
@@ -586,6 +688,33 @@ export default function Securite() {
   const safeVehicles     = vehiclesData     ?? [];
   const safeChecklist    = checklistData    ?? [];
   const safeConformite   = conformiteData   ?? [];
+
+  // Local synced state
+  const [localDrivers, setLocalDrivers] = useState<Driver[]>([]);
+  const [localAlerts, setLocalAlerts]   = useState<Alert[]>([]);
+  useEffect(() => { if (driversData) setLocalDrivers(driversData); }, [driversData]);
+  useEffect(() => { if (alertsData)  setLocalAlerts(alertsData);  }, [alertsData]);
+
+  // Driver CRUD state
+  const [editDriver, setEditDriver]         = useState<Driver | null>(null);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [deleteDriverId, setDeleteDriverId] = useState<string | null>(null);
+  const [deletingDriver, setDeletingDriver] = useState(false);
+
+  const handleDriverSaved = (d: Driver) => {
+    setLocalDrivers(prev => prev.map(x => x.id === d.id ? d : x));
+    setShowDriverModal(false); setEditDriver(null);
+  };
+
+  const handleDeleteDriver = async () => {
+    if (!deleteDriverId) return;
+    setDeletingDriver(true);
+    try {
+      await driverService.delete(deleteDriverId);
+      setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
+      setDeleteDriverId(null);
+    } finally { setDeletingDriver(false); }
+  };
 
   // Scoring state
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -646,13 +775,13 @@ export default function Securite() {
   };
 
   // Scoring derived
-  const sorted = [...safeDrivers].sort((a, b) => b.scoreGlobal - a.scoreGlobal);
-  const avgScore = safeDrivers.length > 0
-    ? Math.round(safeDrivers.reduce((s, d) => s + d.scoreGlobal, 0) / safeDrivers.length)
+  const sorted = [...localDrivers].sort((a, b) => b.scoreGlobal - a.scoreGlobal);
+  const avgScore = localDrivers.length > 0
+    ? Math.round(localDrivers.reduce((s, d) => s + d.scoreGlobal, 0) / localDrivers.length)
     : 0;
-  const criticals = safeDrivers.filter(d => d.scoreGlobal < 70).length;
-  const excellent = safeDrivers.filter(d => d.scoreGlobal >= 90).length;
-  const filteredAlerts = safeAlerts.filter(a => alertFilter === 'all' || a.level === alertFilter);
+  const criticals = localDrivers.filter(d => d.scoreGlobal < 70).length;
+  const excellent = localDrivers.filter(d => d.scoreGlobal >= 90).length;
+  const filteredAlerts = localAlerts.filter(a => alertFilter === 'all' || a.level === alertFilter);
   const scoreTrend = [
     { m: 'Nov', score: 74 }, { m: 'Déc', score: 76 }, { m: 'Jan', score: 75 },
     { m: 'Fév', score: 78 }, { m: 'Mar', score: 80 }, { m: 'Avr', score: 82 },
@@ -713,9 +842,9 @@ export default function Securite() {
             <KPICard label="Conducteurs à risque" value={criticals}
               icon={TrendingDown} iconColor="#ff4444" iconBg={c.dangerBg}
               trendLabel="Score < 70/100" glowClass={criticals > 0 ? 'glow-danger' : ''} />
-            <KPICard label="Alertes non lues" value={safeAlerts.filter(a => !a.lu).length}
+            <KPICard label="Alertes non lues" value={localAlerts.filter(a => !a.lu).length}
               icon={Bell} iconColor="#ffb300" iconBg={c.warningBg}
-              trendLabel={`${safeAlerts.filter(a => a.level === 'critique' && !a.lu).length} critiques`} />
+              trendLabel={`${localAlerts.filter(a => a.level === 'critique' && !a.lu).length} critiques`} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -758,6 +887,12 @@ export default function Securite() {
                         </span>
                       </div>
                       <Eye size={13} style={{ color: c.textMuted, flexShrink: 0 }} />
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => { setEditDriver(d); setShowDriverModal(true); }}
+                          style={{ color: c.accent }}><Pencil size={13} /></button>
+                        <button onClick={() => setDeleteDriverId(d.id)}
+                          style={{ color: '#ff4444' }}><Trash2 size={13} /></button>
+                      </div>
                     </div>
                   );
                 })}
@@ -781,7 +916,16 @@ export default function Securite() {
               <div className="glass-card p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold" style={{ color: c.textPrimary }}>Alertes sécurité</h3>
-                  <Activity size={14} style={{ color: '#ff4444' }} />
+                  <div className="flex items-center gap-2">
+                    {localAlerts.length > 0 && (
+                      <button onClick={() => setLocalAlerts([])}
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(255,68,68,0.1)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.25)' }}>
+                        Vider
+                      </button>
+                    )}
+                    <Activity size={14} style={{ color: '#ff4444' }} />
+                  </div>
                 </div>
                 <div className="flex gap-1 mb-3">
                   {(['all', 'critique', 'warning', 'info'] as const).map(f => (
@@ -1032,7 +1176,14 @@ export default function Securite() {
         <DriverPanel
           driver={selectedDriver}
           onClose={() => setSelectedDriver(null)}
-          alerts={safeAlerts}
+          alerts={localAlerts}
+        />
+      )}
+      {showDriverModal && editDriver && (
+        <DriverEditModal
+          driver={editDriver}
+          onSaved={handleDriverSaved}
+          onClose={() => { setShowDriverModal(false); setEditDriver(null); }}
         />
       )}
       {showForm && (
@@ -1086,6 +1237,27 @@ export default function Securite() {
               <button onClick={handleDeleteAction} disabled={deletingAction} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
                 {deletingAction ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteDriverId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer le conducteur ?</h3>
+            <p className="text-sm mb-4" style={{ color: c.textSecondary }}>
+              {(() => { const d = localDrivers.find(x => x.id === deleteDriverId); return d ? `${d.prenom} ${d.nom} — ${d.matricule}` : ''; })()}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteDriverId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleDeleteDriver} disabled={deletingDriver} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                {deletingDriver ? 'Suppression…' : 'Supprimer'}
               </button>
             </div>
           </div>
