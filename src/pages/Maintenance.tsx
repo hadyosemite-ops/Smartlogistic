@@ -205,14 +205,14 @@ interface IntervFormData {
   vehiculeId: string; type: InterventionType; libelle: string;
   date: string; kmIntervention: string;
   coutPieces: string; coutMainOeuvre: string; garage: string;
-  status: InterventionStatus; notes: string;
+  status: Intervention['status']; notes: string;
 }
 
 const emptyInterv: IntervFormData = {
   vehiculeId: '', type: 'preventive', libelle: '',
   date: '', kmIntervention: '',
   coutPieces: '', coutMainOeuvre: '', garage: '',
-  status: 'planifiee', notes: '',
+  status: 'planifiee' as Intervention['status'], notes: '',
 };
 
 function NouvelleInterventionModal({ onClose, onSave, vehicles, initial }: {
