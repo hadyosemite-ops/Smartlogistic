@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, RefreshCw, Search, Sun, Moon, X, CheckCheck } from 'lucide-react';
-import { alerts as initialAlerts } from '../../data/mock';
+import { Bell, RefreshCw, Search, Sun, Moon, X, CheckCheck, Trash2 } from 'lucide-react';
 import type { Alert } from '../../data/mock';
 import { useTheme } from '../../context/ThemeContext';
+import { alertService } from '../../services/alertService';
 
 interface HeaderProps {
   title: string;
@@ -24,8 +24,12 @@ const alertTypeIcon: Record<string, string> = {
 export default function Header({ title, subtitle }: HeaderProps) {
   const { c, isDark, toggle } = useTheme();
   const [showAlerts, setShowAlerts] = useState(false);
-  const [alertList, setAlertList]   = useState<Alert[]>(initialAlerts);
+  const [alertList, setAlertList]   = useState<Alert[]>([]);
   const [panelPos, setPanelPos]     = useState({ top: 0, right: 0 });
+
+  useEffect(() => {
+    alertService.getAll().then(setAlertList).catch(() => {});
+  }, []);
   const bellRef = useRef<HTMLButtonElement>(null);
 
   const unread = alertList.filter(a => !a.lu).length;
@@ -58,8 +62,13 @@ export default function Header({ title, subtitle }: HeaderProps) {
     return () => window.removeEventListener('resize', onResize);
   }, [showAlerts]);
 
-  const markAllRead = () => setAlertList(prev => prev.map(a => ({ ...a, lu: true })));
-  const markRead    = (id: string) => setAlertList(prev => prev.map(a => a.id === id ? { ...a, lu: true } : a));
+  const markAllRead   = () => setAlertList(prev => prev.map(a => ({ ...a, lu: true })));
+  const markRead      = (id: string) => setAlertList(prev => prev.map(a => a.id === id ? { ...a, lu: true } : a));
+  const clearAllAlerts = () => {
+    setAlertList([]);
+    setShowAlerts(false);
+    alertService.deleteAll().catch(() => {});
+  };
 
   // Panneau rendu via Portal (échappe au stacking context du header)
   const alertPanel = showAlerts ? createPortal(
@@ -166,11 +175,18 @@ export default function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         {/* Pied */}
-        <div className="px-4 py-2.5 text-center"
+        <div className="px-4 py-2.5 flex items-center justify-between"
           style={{ borderTop: `1px solid ${isDark ? '#1a3050' : '#e8eef5'}` }}>
           <span className="text-xs" style={{ color: isDark ? '#2a5070' : '#aab8c8' }}>
-            {alertList.length} alerte{alertList.length > 1 ? 's' : ''} au total
+            {alertList.length} alerte{alertList.length !== 1 ? 's' : ''} au total
           </span>
+          {alertList.length > 0 && (
+            <button onClick={clearAllAlerts}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
+              style={{ color: '#ff6666', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)' }}>
+              <Trash2 size={11} /> Vider
+            </button>
+          )}
         </div>
       </div>
     </>,
