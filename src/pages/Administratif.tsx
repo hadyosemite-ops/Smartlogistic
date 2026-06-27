@@ -587,12 +587,9 @@ export default function Administratif() {
   const handleDocDelete = async () => {
     if (!deleteDocId) return;
     setDeletingDoc(true);
-    try {
-      await adminService.deleteDocument(deleteDocId);
-      setLocalDocs(prev => prev.filter(d => d.id !== deleteDocId));
-      setDeleteDocId(null);
-      refetchDocs();
-    } finally { setDeletingDoc(false); }
+    try { await adminService.deleteDocument(deleteDocId); } catch (e) { console.error('delete doc', e); }
+    setLocalDocs(prev => prev.filter(d => d.id !== deleteDocId));
+    setDeleteDocId(null); setDeletingDoc(false); refetchDocs();
   };
 
   // Handlers: Contrats
@@ -604,12 +601,9 @@ export default function Administratif() {
   const handleContratDelete = async () => {
     if (!deleteContratId) return;
     setDeletingContrat(true);
-    try {
-      await adminService.deleteContrat(deleteContratId);
-      setLocalContrats(prev => prev.filter(ct => ct.id !== deleteContratId));
-      setDeleteContratId(null);
-      refetchContrats();
-    } finally { setDeletingContrat(false); }
+    try { await adminService.deleteContrat(deleteContratId); } catch (e) { console.error('delete contrat', e); }
+    setLocalContrats(prev => prev.filter(ct => ct.id !== deleteContratId));
+    setDeleteContratId(null); setDeletingContrat(false); refetchContrats();
   };
 
   // Handlers: Factures
@@ -621,12 +615,9 @@ export default function Administratif() {
   const handleFactureDelete = async () => {
     if (!deleteFactureId) return;
     setDeletingFacture(true);
-    try {
-      await adminService.deleteFacture(deleteFactureId);
-      setLocalFactures(prev => prev.filter(f => f.id !== deleteFactureId));
-      setDeleteFactureId(null);
-      refetchFactures();
-    } finally { setDeletingFacture(false); }
+    try { await adminService.deleteFacture(deleteFactureId); } catch (e) { console.error('delete facture', e); }
+    setLocalFactures(prev => prev.filter(f => f.id !== deleteFactureId));
+    setDeleteFactureId(null); setDeletingFacture(false); refetchFactures();
   };
 
   const safeDocs     = localDocs;

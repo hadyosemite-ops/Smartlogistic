@@ -25,6 +25,7 @@ import {
 } from '../hooks/useFleetData';
 import { checklistService } from '../services/checklistService';
 import { driverService } from '../services/driverService';
+import { alertService } from '../services/alertService';
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
 
@@ -711,9 +712,10 @@ export default function Securite() {
     setDeletingDriver(true);
     try {
       await driverService.delete(deleteDriverId);
-      setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
-      setDeleteDriverId(null);
-    } finally { setDeletingDriver(false); }
+    } catch (e) { console.error('delete driver', e); }
+    setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
+    setDeleteDriverId(null);
+    setDeletingDriver(false);
   };
 
   // Scoring state
@@ -750,11 +752,11 @@ export default function Securite() {
     setDeletingInsp(true);
     try {
       await checklistService.deleteInspection(deleteInspId);
-      setAllInspections(prev => prev.filter(i => i.id !== deleteInspId));
-      // also remove related actions
-      setAllActions(prev => prev.filter(a => a.inspectionId !== deleteInspId));
-      setDeleteInspId(null);
-    } finally { setDeletingInsp(false); }
+    } catch (e) { console.error('delete insp', e); }
+    setAllInspections(prev => prev.filter(i => i.id !== deleteInspId));
+    setAllActions(prev => prev.filter(a => a.inspectionId !== deleteInspId));
+    setDeleteInspId(null);
+    setDeletingInsp(false);
   };
 
   const handleDeleteAction = async () => {
@@ -762,9 +764,10 @@ export default function Securite() {
     setDeletingAction(true);
     try {
       await checklistService.deleteAction(deleteActionId);
-      setAllActions(prev => prev.filter(a => a.id !== deleteActionId));
-      setDeleteActionId(null);
-    } finally { setDeletingAction(false); }
+    } catch (e) { console.error('delete action', e); }
+    setAllActions(prev => prev.filter(a => a.id !== deleteActionId));
+    setDeleteActionId(null);
+    setDeletingAction(false);
   };
 
   const tooltipStyle = {
@@ -918,7 +921,11 @@ export default function Securite() {
                   <h3 className="text-sm font-semibold" style={{ color: c.textPrimary }}>Alertes sécurité</h3>
                   <div className="flex items-center gap-2">
                     {localAlerts.length > 0 && (
-                      <button onClick={() => setLocalAlerts([])}
+                      <button
+                        onClick={async () => {
+                          try { await alertService.deleteAll(); } catch { /* ignore */ }
+                          setLocalAlerts([]);
+                        }}
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{ background: 'rgba(255,68,68,0.1)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.25)' }}>
                         Vider

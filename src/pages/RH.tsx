@@ -773,8 +773,9 @@ export default function RH() {
   };
   const handleDriverDelete = async () => {
     if (!deleteDriverId) return; setDeletingDriver(true);
-    try { await driverService.delete(deleteDriverId); setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId)); setDeleteDriverId(null); refetchDrivers(); }
-    finally { setDeletingDriver(false); }
+    try { await driverService.delete(deleteDriverId); } catch (e) { console.error('delete driver', e); }
+    setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
+    setDeleteDriverId(null); setDeletingDriver(false); refetchDrivers();
   };
 
   const handleCongeSaved = (cg: Conge) => {
@@ -783,8 +784,9 @@ export default function RH() {
   };
   const handleCongeDelete = async () => {
     if (!deleteCongeId) return; setDeletingConge(true);
-    try { await rhService.deleteConge(deleteCongeId); setLocalConges(prev => prev.filter(cg => cg.id !== deleteCongeId)); setDeleteCongeId(null); refetchConges(); }
-    finally { setDeletingConge(false); }
+    try { await rhService.deleteConge(deleteCongeId); } catch (e) { console.error('delete conge', e); }
+    setLocalConges(prev => prev.filter(cg => cg.id !== deleteCongeId));
+    setDeleteCongeId(null); setDeletingConge(false); refetchConges();
   };
 
   const handleFormationSaved = (fm: Formation) => {
@@ -793,8 +795,9 @@ export default function RH() {
   };
   const handleFormationDelete = async () => {
     if (!deleteFormationId) return; setDeletingFormation(true);
-    try { await rhService.deleteFormation(deleteFormationId); setLocalFormations(prev => prev.filter(f => f.id !== deleteFormationId)); setDeleteFormationId(null); refetchFormations(); }
-    finally { setDeletingFormation(false); }
+    try { await rhService.deleteFormation(deleteFormationId); } catch (e) { console.error('delete formation', e); }
+    setLocalFormations(prev => prev.filter(f => f.id !== deleteFormationId));
+    setDeleteFormationId(null); setDeletingFormation(false); refetchFormations();
   };
 
   const handlePaieSaved = (p: PaieInput) => {
@@ -803,8 +806,9 @@ export default function RH() {
   };
   const handlePaieDelete = async () => {
     if (!deletePaieKey) return; setDeletingPaie(true);
-    try { await rhService.deletePaie(deletePaieKey.chauffeurId, deletePaieKey.mois); setLocalPaie(prev => prev.filter(p => !(p.chauffeurId === deletePaieKey.chauffeurId && p.mois === deletePaieKey.mois))); setDeletePaieKey(null); refetchPaie(); }
-    finally { setDeletingPaie(false); }
+    try { await rhService.deletePaie(deletePaieKey.chauffeurId, deletePaieKey.mois); } catch (e) { console.error('delete paie', e); }
+    setLocalPaie(prev => prev.filter(p => !(p.chauffeurId === deletePaieKey!.chauffeurId && p.mois === deletePaieKey!.mois)));
+    setDeletePaieKey(null); setDeletingPaie(false); refetchPaie();
   };
 
   const safeDrv  = localDrivers;

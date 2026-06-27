@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Wrench, AlertTriangle, CheckCircle, Clock,
-  X, ChevronRight, Plus
+  X, ChevronRight, Plus, Pencil, Trash2
 } from 'lucide-react';
+import { maintenanceService } from '../services/maintenanceService';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
@@ -212,13 +213,20 @@ const emptyInterv: IntervFormData = {
   coutPieces: '', coutMainOeuvre: '', garage: '', notes: '',
 };
 
-function NouvelleInterventionModal({ onClose, onSave, vehicles }: {
+function NouvelleInterventionModal({ onClose, onSave, vehicles, initial }: {
   onClose: () => void;
   onSave: (i: Intervention) => void;
   vehicles: Vehicle[];
+  initial?: Intervention;
 }) {
   const { c } = useTheme();
-  const [form, setForm] = useState<IntervFormData>(emptyInterv);
+  const isEdit = !!initial;
+  const [form, setForm] = useState<IntervFormData>(initial ? {
+    vehiculeId: initial.vehiculeId, type: initial.type, libelle: initial.libelle,
+    date: initial.date, kmIntervention: String(initial.kmIntervention ?? ''),
+    coutPieces: String(initial.coutPieces ?? ''), coutMainOeuvre: String(initial.coutMainOeuvre ?? ''),
+    garage: initial.garage ?? '', status: initial.status, notes: initial.notes ?? '',
+  } : emptyInterv);
   const [errors, setErrors] = useState<Partial<Record<keyof IntervFormData, string>>>({});
 
   const set = (k: keyof IntervFormData) =>
@@ -238,23 +246,39 @@ function NouvelleInterventionModal({ onClose, onSave, vehicles }: {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
     if (!validate()) return;
-    const newInterv: Intervention = {
-      id: `i${Date.now()}`,
-      vehiculeId: form.vehiculeId,
-      type: form.type,
-      libelle: form.libelle,
-      date: form.date,
-      kmIntervention: Number(form.kmIntervention),
-      coutPieces: Number(form.coutPieces) || 0,
-      coutMainOeuvre: Number(form.coutMainOeuvre) || 0,
-      garage: form.garage,
-      status: 'planifiee',
-      notes: form.notes || undefined,
-    };
-    onSave(newInterv);
-    onClose();
+    setSaving(true); setSaveErr(null);
+    try {
+      if (isEdit && initial) {
+        await maintenanceService.updateIntervention(initial.id, {
+          type: form.type, libelle: form.libelle, date: form.date,
+          kmIntervention: Number(form.kmIntervention), coutPieces: Number(form.coutPieces) || 0,
+          coutMainOeuvre: Number(form.coutMainOeuvre) || 0, garage: form.garage,
+          status: form.status as Intervention['status'], notes: form.notes || undefined,
+        });
+        onSave({ ...initial, type: form.type, libelle: form.libelle, date: form.date,
+          kmIntervention: Number(form.kmIntervention), coutPieces: Number(form.coutPieces) || 0,
+          coutMainOeuvre: Number(form.coutMainOeuvre) || 0, garage: form.garage,
+          status: form.status as Intervention['status'], notes: form.notes || undefined });
+      } else {
+        const created = await maintenanceService.createIntervention({
+          vehiculeId: form.vehiculeId, type: form.type, libelle: form.libelle, date: form.date,
+          kmIntervention: Number(form.kmIntervention), coutPieces: Number(form.coutPieces) || 0,
+          coutMainOeuvre: Number(form.coutMainOeuvre) || 0, garage: form.garage,
+          status: 'planifiee', notes: form.notes || undefined,
+        });
+        onSave(created);
+      }
+      onClose();
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -285,8 +309,8 @@ function NouvelleInterventionModal({ onClose, onSave, vehicles }: {
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
           style={{ borderBottom: `1px solid ${c.border}` }}>
           <div>
-            <div className="font-semibold" style={{ color: c.textPrimary }}>Nouvelle intervention</div>
-            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>Planifier une intervention de maintenance</div>
+            <div className="font-semibold" style={{ color: c.textPrimary }}>{isEdit ? 'Modifier l\'intervention' : 'Nouvelle intervention'}</div>
+            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>{isEdit ? initial?.libelle : 'Planifier une intervention de maintenance'}</div>
           </div>
           <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
         </div>
@@ -359,15 +383,16 @@ function NouvelleInterventionModal({ onClose, onSave, vehicles }: {
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 flex-shrink-0"
           style={{ borderTop: `1px solid ${c.border}` }}>
-          <button onClick={onClose}
+          {saveErr && <span className="text-xs flex-1" style={{ color: '#ff4444' }}>{saveErr}</span>}
+          <button onClick={onClose} disabled={saving}
             className="px-4 py-2 rounded-lg text-sm"
             style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>
             Annuler
           </button>
-          <button onClick={handleSubmit}
+          <button onClick={handleSubmit} disabled={saving}
             className="px-4 py-2 rounded-lg text-sm font-semibold"
-            style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}`, color: c.accent }}>
-            Planifier l'intervention
+            style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}`, color: c.accent, opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Enregistrement...' : isEdit ? 'Enregistrer' : 'Planifier l\'intervention'}
           </button>
         </div>
       </div>
@@ -381,10 +406,13 @@ export default function Maintenance() {
   const { c } = useTheme();
   const [selectedVehicle, setSelectedVehicle]         = useState<string | null>(null);
   const [activeTab, setActiveTab]                     = useState<'flotte' | 'interventions' | 'couts'>('flotte');
-  const [showForm, setShowForm]                       = useState(false);
+  const [showForm, setShowForm]   = useState(false);
+  const [editId,   setEditId]     = useState<string | null>(null);
+  const [deleteId, setDeleteId]   = useState<string | null>(null);
+  const [deleting, setDeleting]   = useState(false);
 
   const { data: vehicles,          loading: lv, error: ev } = useVehicles();
-  const { data: interventionsData, loading: li, error: ei } = useInterventions();
+  const { data: interventionsData, loading: li, error: ei, refetch } = useInterventions();
   const { data: maintenanceAlerts, loading: la, error: ea } = useMaintenanceAlerts();
   const { data: costByMonth,       loading: lc, error: ec } = useMaintenanceCosts();
 
@@ -392,9 +420,9 @@ export default function Maintenance() {
   const error   = ev || ei || ea || ec;
 
   const [localInterventions, setLocalInterventions] = useState<Intervention[]>([]);
-  if (interventionsData && localInterventions.length === 0 && interventionsData.length > 0) {
-    setLocalInterventions(interventionsData);
-  }
+  useEffect(() => {
+    if (interventionsData) setLocalInterventions(interventionsData);
+  }, [interventionsData]);
 
   const safeVehicles    = vehicles          ?? [];
   const safeMAlerts     = maintenanceAlerts ?? [];
@@ -568,7 +596,7 @@ export default function Maintenance() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                    {['Véhicule', 'Type', 'Intervention', 'Date', 'Kilométrage', 'Garage', 'Coût total', 'Statut'].map(h => (
+                    {['Véhicule', 'Type', 'Intervention', 'Date', 'Kilométrage', 'Garage', 'Coût total', 'Statut', ''].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                         style={{ color: c.textFaint, background: c.bgElevated }}>{h}</th>
                     ))}
@@ -603,6 +631,18 @@ export default function Maintenance() {
                         </td>
                         <td className="px-4 py-3">
                           <Badge label={i.status} className={statusColor[i.status]} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={e => { e.stopPropagation(); setEditId(i.id); }}
+                              className="p-1.5 rounded-lg" style={{ color: c.accent, background: c.accentBg }}>
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); setDeleteId(i.id); }}
+                              className="p-1.5 rounded-lg" style={{ color: c.danger, background: c.dangerBg }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -721,9 +761,50 @@ export default function Maintenance() {
       {showForm && (
         <NouvelleInterventionModal
           onClose={() => setShowForm(false)}
-          onSave={i => setLocalInterventions(prev => [i, ...prev])}
+          onSave={i => { setLocalInterventions(prev => [i, ...prev]); refetch(); }}
           vehicles={safeVehicles}
         />
+      )}
+
+      {editId && (
+        <NouvelleInterventionModal
+          initial={localInterventions.find(i => i.id === editId)}
+          onClose={() => setEditId(null)}
+          onSave={() => { setEditId(null); refetch(); }}
+          vehicles={safeVehicles}
+        />
+      )}
+
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="glass-card p-6 w-full max-w-sm mx-4" style={{ border: `1px solid ${c.dangerBorder}` }}>
+            <div className="flex items-center gap-3 mb-4">
+              <Trash2 size={20} style={{ color: c.danger }} />
+              <span className="font-semibold" style={{ color: c.textPrimary }}>Supprimer l'intervention ?</span>
+            </div>
+            <p className="text-sm mb-5" style={{ color: c.textSecondary }}>
+              {localInterventions.find(i => i.id === deleteId)?.libelle} sera définitivement supprimée.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)} className="flex-1 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>
+                Annuler
+              </button>
+              <button disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  try { await maintenanceService.deleteIntervention(deleteId); } catch (e) { console.error('delete intervention', e); }
+                  setLocalInterventions(prev => prev.filter(i => i.id !== deleteId));
+                  setDeleteId(null); setDeleting(false);
+                }}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: c.dangerBg, border: `1px solid ${c.dangerBorder}`, color: c.danger, opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       </DataState>
     </div>

@@ -59,4 +59,9 @@ export const alertService = {
     const { error } = await supabase.from('alerts').delete().eq('id', id);
     if (error) throw error;
   },
+
+  async deleteAll(): Promise<void> {
+    const { error } = await supabase.from('alerts').delete().not('id', 'is', null);
+    if (error) throw error;
+  },
 };
