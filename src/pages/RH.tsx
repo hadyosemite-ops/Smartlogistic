@@ -743,24 +743,24 @@ export default function RH() {
   const [showDriverModal,  setShowDriverModal]  = useState(false);
   const [editDriverId,     setEditDriverId]     = useState<string | null>(null);
   const [deleteDriverId,   setDeleteDriverId]   = useState<string | null>(null);
-  const [deletingDriver,   setDeletingDriver]   = useState(false);
+  const [deletingDriver]                        = useState(false);
 
   // CRUD state — Congés
   const [showCongeModal,   setShowCongeModal]   = useState(false);
   const [editCongeId,      setEditCongeId]      = useState<string | null>(null);
   const [deleteCongeId,    setDeleteCongeId]    = useState<string | null>(null);
-  const [deletingConge,    setDeletingConge]    = useState(false);
+  const [deletingConge]                         = useState(false);
 
   // CRUD state — Formations
   const [showFormationModal, setShowFormationModal] = useState(false);
   const [editFormationId,    setEditFormationId]    = useState<string | null>(null);
   const [deleteFormationId,  setDeleteFormationId]  = useState<string | null>(null);
-  const [deletingFormation,  setDeletingFormation]  = useState(false);
+  const [deletingFormation]                         = useState(false);
 
   // CRUD state — Paie
   const [showPaieModal,    setShowPaieModal]    = useState(false);
   const [deletePaieKey,    setDeletePaieKey]    = useState<{ chauffeurId: string; mois: string } | null>(null);
-  const [deletingPaie,     setDeletingPaie]     = useState(false);
+  const [deletingPaie]                          = useState(false);
 
   const editDriver    = localDrivers.find(d => d.id === editDriverId);
   const editConge     = localConges.find(cg => cg.id === editCongeId);

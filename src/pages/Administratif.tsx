@@ -562,17 +562,14 @@ export default function Administratif() {
   const [showDocModal,     setShowDocModal]     = useState(false);
   const [editDocId,        setEditDocId]        = useState<string | null>(null);
   const [deleteDocId,      setDeleteDocId]      = useState<string | null>(null);
-  const [deletingDoc,      setDeletingDoc]      = useState(false);
 
   const [showContratModal, setShowContratModal] = useState(false);
   const [editContratId,    setEditContratId]    = useState<string | null>(null);
   const [deleteContratId,  setDeleteContratId]  = useState<string | null>(null);
-  const [deletingContrat,  setDeletingContrat]  = useState(false);
 
   const [showFactureModal, setShowFactureModal] = useState(false);
   const [editFactureId,    setEditFactureId]    = useState<string | null>(null);
   const [deleteFactureId,  setDeleteFactureId]  = useState<string | null>(null);
-  const [deletingFacture,  setDeletingFacture]  = useState(false);
 
   const editDoc     = localDocs.find(d => d.id === editDocId);
   const editContrat = localContrats.find(ct => ct.id === editContratId);
@@ -1322,9 +1319,9 @@ export default function Administratif() {
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
                 Annuler
               </button>
-              <button onClick={handleDocDelete} disabled={deletingDoc} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleDocDelete} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingDoc ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>
@@ -1344,9 +1341,9 @@ export default function Administratif() {
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
                 Annuler
               </button>
-              <button onClick={handleContratDelete} disabled={deletingContrat} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleContratDelete} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingContrat ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>
@@ -1366,9 +1363,9 @@ export default function Administratif() {
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
                 Annuler
               </button>
-              <button onClick={handleFactureDelete} disabled={deletingFacture} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleFactureDelete} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingFacture ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>

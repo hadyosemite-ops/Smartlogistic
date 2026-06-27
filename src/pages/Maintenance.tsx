@@ -204,13 +204,15 @@ function VehicleDetail({ vehiculeId, onClose, vehicles, interventions, maintenan
 interface IntervFormData {
   vehiculeId: string; type: InterventionType; libelle: string;
   date: string; kmIntervention: string;
-  coutPieces: string; coutMainOeuvre: string; garage: string; notes: string;
+  coutPieces: string; coutMainOeuvre: string; garage: string;
+  status: InterventionStatus; notes: string;
 }
 
 const emptyInterv: IntervFormData = {
   vehiculeId: '', type: 'preventive', libelle: '',
   date: '', kmIntervention: '',
-  coutPieces: '', coutMainOeuvre: '', garage: '', notes: '',
+  coutPieces: '', coutMainOeuvre: '', garage: '',
+  status: 'planifiee', notes: '',
 };
 
 function NouvelleInterventionModal({ onClose, onSave, vehicles, initial }: {
@@ -409,7 +411,7 @@ export default function Maintenance() {
   const [showForm, setShowForm]   = useState(false);
   const [editId,   setEditId]     = useState<string | null>(null);
   const [deleteId, setDeleteId]   = useState<string | null>(null);
-  const [deleting, setDeleting]   = useState(false);
+  const [deleting]   = useState(false);
 
   const { data: vehicles,          loading: lv, error: ev } = useVehicles();
   const { data: interventionsData, loading: li, error: ei, refetch } = useInterventions();

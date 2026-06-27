@@ -685,7 +685,6 @@ export default function Securite() {
   const error   = ed || ea || ev;
 
   const safeDrivers      = driversData      ?? [];
-  const safeAlerts       = alertsData       ?? [];
   const safeVehicles     = vehiclesData     ?? [];
   const safeChecklist    = checklistData    ?? [];
   const safeConformite   = conformiteData   ?? [];
