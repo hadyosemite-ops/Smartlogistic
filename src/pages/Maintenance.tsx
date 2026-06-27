@@ -792,11 +792,10 @@ export default function Maintenance() {
                 Annuler
               </button>
               <button disabled={deleting}
-                onClick={async () => {
-                  setDeleting(true);
-                  try { await maintenanceService.deleteIntervention(deleteId); } catch (e) { console.error('delete intervention', e); }
-                  setLocalInterventions(prev => prev.filter(i => i.id !== deleteId));
-                  setDeleteId(null); setDeleting(false);
+                onClick={() => {
+                  const id = deleteId; setDeleteId(null);
+                  setLocalInterventions(prev => prev.filter(i => i.id !== id));
+                  maintenanceService.deleteIntervention(id).catch(e => console.error('delete intervention', e));
                 }}
                 className="flex-1 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: c.dangerBg, border: `1px solid ${c.dangerBorder}`, color: c.danger, opacity: deleting ? 0.6 : 1 }}>

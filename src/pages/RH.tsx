@@ -771,44 +771,44 @@ export default function RH() {
     setLocalDrivers(prev => editDriverId ? prev.map(x => x.id === d.id ? d : x) : [d, ...prev]);
     setShowDriverModal(false); setEditDriverId(null); refetchDrivers();
   };
-  const handleDriverDelete = async () => {
-    if (!deleteDriverId) return; setDeletingDriver(true);
-    try { await driverService.delete(deleteDriverId); } catch (e) { console.error('delete driver', e); }
-    setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
-    setDeleteDriverId(null); setDeletingDriver(false); refetchDrivers();
+  const handleDriverDelete = () => {
+    if (!deleteDriverId) return;
+    const id = deleteDriverId; setDeleteDriverId(null);
+    setLocalDrivers(prev => prev.filter(d => d.id !== id));
+    driverService.delete(id).catch(e => console.error('delete driver', e)); refetchDrivers();
   };
 
   const handleCongeSaved = (cg: Conge) => {
     setLocalConges(prev => editCongeId ? prev.map(x => x.id === cg.id ? cg : x) : [cg, ...prev]);
     setShowCongeModal(false); setEditCongeId(null); refetchConges();
   };
-  const handleCongeDelete = async () => {
-    if (!deleteCongeId) return; setDeletingConge(true);
-    try { await rhService.deleteConge(deleteCongeId); } catch (e) { console.error('delete conge', e); }
-    setLocalConges(prev => prev.filter(cg => cg.id !== deleteCongeId));
-    setDeleteCongeId(null); setDeletingConge(false); refetchConges();
+  const handleCongeDelete = () => {
+    if (!deleteCongeId) return;
+    const id = deleteCongeId; setDeleteCongeId(null);
+    setLocalConges(prev => prev.filter(cg => cg.id !== id));
+    rhService.deleteConge(id).catch(e => console.error('delete conge', e)); refetchConges();
   };
 
   const handleFormationSaved = (fm: Formation) => {
     setLocalFormations(prev => editFormationId ? prev.map(x => x.id === fm.id ? fm : x) : [fm, ...prev]);
     setShowFormationModal(false); setEditFormationId(null); refetchFormations();
   };
-  const handleFormationDelete = async () => {
-    if (!deleteFormationId) return; setDeletingFormation(true);
-    try { await rhService.deleteFormation(deleteFormationId); } catch (e) { console.error('delete formation', e); }
-    setLocalFormations(prev => prev.filter(f => f.id !== deleteFormationId));
-    setDeleteFormationId(null); setDeletingFormation(false); refetchFormations();
+  const handleFormationDelete = () => {
+    if (!deleteFormationId) return;
+    const id = deleteFormationId; setDeleteFormationId(null);
+    setLocalFormations(prev => prev.filter(f => f.id !== id));
+    rhService.deleteFormation(id).catch(e => console.error('delete formation', e)); refetchFormations();
   };
 
   const handlePaieSaved = (p: PaieInput) => {
     const newEntry: PaieMensuelle = { chauffeurId: p.chauffeurId, mois: p.mois, salaireBase: p.salaireBase, primeKm: p.primeKm ?? 0, primeRendement: p.primeRendement ?? 0, heuresSupp: p.heuresSupp ?? 0, retenues: p.retenues ?? 0, netAPayer: p.netAPayer };
     setLocalPaie(prev => [newEntry, ...prev]); setShowPaieModal(false); refetchPaie();
   };
-  const handlePaieDelete = async () => {
-    if (!deletePaieKey) return; setDeletingPaie(true);
-    try { await rhService.deletePaie(deletePaieKey.chauffeurId, deletePaieKey.mois); } catch (e) { console.error('delete paie', e); }
-    setLocalPaie(prev => prev.filter(p => !(p.chauffeurId === deletePaieKey!.chauffeurId && p.mois === deletePaieKey!.mois)));
-    setDeletePaieKey(null); setDeletingPaie(false); refetchPaie();
+  const handlePaieDelete = () => {
+    if (!deletePaieKey) return;
+    const key = deletePaieKey; setDeletePaieKey(null);
+    setLocalPaie(prev => prev.filter(p => !(p.chauffeurId === key.chauffeurId && p.mois === key.mois)));
+    rhService.deletePaie(key.chauffeurId, key.mois).catch(e => console.error('delete paie', e)); refetchPaie();
   };
 
   const safeDrv  = localDrivers;

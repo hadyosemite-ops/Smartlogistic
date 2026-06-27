@@ -584,12 +584,11 @@ export default function Administratif() {
     setShowDocModal(false); setEditDocId(null);
     refetchDocs();
   };
-  const handleDocDelete = async () => {
+  const handleDocDelete = () => {
     if (!deleteDocId) return;
-    setDeletingDoc(true);
-    try { await adminService.deleteDocument(deleteDocId); } catch (e) { console.error('delete doc', e); }
-    setLocalDocs(prev => prev.filter(d => d.id !== deleteDocId));
-    setDeleteDocId(null); setDeletingDoc(false); refetchDocs();
+    const id = deleteDocId; setDeleteDocId(null);
+    setLocalDocs(prev => prev.filter(d => d.id !== id));
+    adminService.deleteDocument(id).catch(e => console.error('delete doc', e)); refetchDocs();
   };
 
   // Handlers: Contrats
@@ -598,12 +597,11 @@ export default function Administratif() {
     setShowContratModal(false); setEditContratId(null);
     refetchContrats();
   };
-  const handleContratDelete = async () => {
+  const handleContratDelete = () => {
     if (!deleteContratId) return;
-    setDeletingContrat(true);
-    try { await adminService.deleteContrat(deleteContratId); } catch (e) { console.error('delete contrat', e); }
-    setLocalContrats(prev => prev.filter(ct => ct.id !== deleteContratId));
-    setDeleteContratId(null); setDeletingContrat(false); refetchContrats();
+    const id = deleteContratId; setDeleteContratId(null);
+    setLocalContrats(prev => prev.filter(ct => ct.id !== id));
+    adminService.deleteContrat(id).catch(e => console.error('delete contrat', e)); refetchContrats();
   };
 
   // Handlers: Factures
@@ -612,12 +610,11 @@ export default function Administratif() {
     setShowFactureModal(false); setEditFactureId(null);
     refetchFactures();
   };
-  const handleFactureDelete = async () => {
+  const handleFactureDelete = () => {
     if (!deleteFactureId) return;
-    setDeletingFacture(true);
-    try { await adminService.deleteFacture(deleteFactureId); } catch (e) { console.error('delete facture', e); }
-    setLocalFactures(prev => prev.filter(f => f.id !== deleteFactureId));
-    setDeleteFactureId(null); setDeletingFacture(false); refetchFactures();
+    const id = deleteFactureId; setDeleteFactureId(null);
+    setLocalFactures(prev => prev.filter(f => f.id !== id));
+    adminService.deleteFacture(id).catch(e => console.error('delete facture', e)); refetchFactures();
   };
 
   const safeDocs     = localDocs;

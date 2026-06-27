@@ -700,22 +700,18 @@ export default function Securite() {
   const [editDriver, setEditDriver]         = useState<Driver | null>(null);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [deleteDriverId, setDeleteDriverId] = useState<string | null>(null);
-  const [deletingDriver, setDeletingDriver] = useState(false);
 
   const handleDriverSaved = (d: Driver) => {
     setLocalDrivers(prev => prev.map(x => x.id === d.id ? d : x));
     setShowDriverModal(false); setEditDriver(null);
   };
 
-  const handleDeleteDriver = async () => {
+  const handleDeleteDriver = () => {
     if (!deleteDriverId) return;
-    setDeletingDriver(true);
-    try {
-      await driverService.delete(deleteDriverId);
-    } catch (e) { console.error('delete driver', e); }
-    setLocalDrivers(prev => prev.filter(d => d.id !== deleteDriverId));
+    const id = deleteDriverId;
     setDeleteDriverId(null);
-    setDeletingDriver(false);
+    setLocalDrivers(prev => prev.filter(d => d.id !== id));
+    driverService.delete(id).catch(e => console.error('delete driver', e));
   };
 
   // Scoring state
@@ -737,9 +733,7 @@ export default function Securite() {
 
   // Delete state
   const [deleteInspId,   setDeleteInspId]   = useState<string | null>(null);
-  const [deletingInsp,   setDeletingInsp]   = useState(false);
   const [deleteActionId, setDeleteActionId] = useState<string | null>(null);
-  const [deletingAction, setDeletingAction] = useState(false);
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
@@ -747,27 +741,21 @@ export default function Securite() {
     setShowForm(false);
   };
 
-  const handleDeleteInsp = async () => {
+  const handleDeleteInsp = () => {
     if (!deleteInspId) return;
-    setDeletingInsp(true);
-    try {
-      await checklistService.deleteInspection(deleteInspId);
-    } catch (e) { console.error('delete insp', e); }
-    setAllInspections(prev => prev.filter(i => i.id !== deleteInspId));
-    setAllActions(prev => prev.filter(a => a.inspectionId !== deleteInspId));
+    const id = deleteInspId;
     setDeleteInspId(null);
-    setDeletingInsp(false);
+    setAllInspections(prev => prev.filter(i => i.id !== id));
+    setAllActions(prev => prev.filter(a => a.inspectionId !== id));
+    checklistService.deleteInspection(id).catch(e => console.error('delete insp', e));
   };
 
-  const handleDeleteAction = async () => {
+  const handleDeleteAction = () => {
     if (!deleteActionId) return;
-    setDeletingAction(true);
-    try {
-      await checklistService.deleteAction(deleteActionId);
-    } catch (e) { console.error('delete action', e); }
-    setAllActions(prev => prev.filter(a => a.id !== deleteActionId));
+    const id = deleteActionId;
     setDeleteActionId(null);
-    setDeletingAction(false);
+    setAllActions(prev => prev.filter(a => a.id !== id));
+    checklistService.deleteAction(id).catch(e => console.error('delete action', e));
   };
 
   const tooltipStyle = {
@@ -1222,9 +1210,9 @@ export default function Securite() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteInspId(null)} className="px-4 py-2 rounded-lg text-sm"
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
-              <button onClick={handleDeleteInsp} disabled={deletingInsp} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleDeleteInsp} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingInsp ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>
@@ -1241,9 +1229,9 @@ export default function Securite() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteActionId(null)} className="px-4 py-2 rounded-lg text-sm"
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
-              <button onClick={handleDeleteAction} disabled={deletingAction} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleDeleteAction} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingAction ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>
@@ -1262,9 +1250,9 @@ export default function Securite() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteDriverId(null)} className="px-4 py-2 rounded-lg text-sm"
                 style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
-              <button onClick={handleDeleteDriver} disabled={deletingDriver} className="px-4 py-2 rounded-lg text-sm font-semibold"
+              <button onClick={handleDeleteDriver} className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
-                {deletingDriver ? 'Suppression…' : 'Supprimer'}
+                Supprimer
               </button>
             </div>
           </div>
