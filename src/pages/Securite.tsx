@@ -1036,7 +1036,10 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
   const { c } = useTheme();
   const [inc, setInc] = useState<Incident>(initInc);
   const [activeTab, setActiveTab] = useState<'declaration' | 'analyse' | 'actions'>('declaration');
+  const [editMode, setEditMode] = useState(false);
+  const [editFields, setEditFields] = useState({ type: initInc.type, gravite: initInc.gravite, date: initInc.date, heure: initInc.heure, lieu: initInc.lieu, vehiculeId: initInc.vehiculeId ?? '', chauffeurId: initInc.chauffeurId ?? '', declarePar: initInc.declarePar, description: initInc.description, blesses: initInc.blesses, degatsMateriels: initInc.degatsMateriels, temoins: initInc.temoins });
   const [newAction, setNewAction] = useState({ description: '', type: 'corrective' as 'corrective' | 'preventive', responsable: '', echeance: '' });
+  const [deleteActionId, setDeleteActionId] = useState<string | null>(null);
 
   const gColor = graviteColor(inc.gravite);
   const sColor = statutIncidentColor(inc.statut);
@@ -1059,6 +1062,31 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
   const toggleActionStatut = (id: string) => {
     const flow: IncidentAction['statut'][] = ['ouverte', 'en_cours', 'cloturee'];
     save({ ...inc, actions: inc.actions.map(a => a.id !== id ? a : { ...a, statut: flow[(flow.indexOf(a.statut) + 1) % flow.length] }) });
+  };
+
+  const removeAction = (id: string) => {
+    save({ ...inc, actions: inc.actions.filter(a => a.id !== id) });
+    setDeleteActionId(null);
+  };
+
+  const saveEditFields = () => {
+    const updated: Incident = {
+      ...inc,
+      type:            editFields.type,
+      gravite:         editFields.gravite,
+      date:            editFields.date,
+      heure:           editFields.heure,
+      lieu:            editFields.lieu,
+      vehiculeId:      editFields.vehiculeId || undefined,
+      chauffeurId:     editFields.chauffeurId || undefined,
+      declarePar:      editFields.declarePar,
+      description:     editFields.description,
+      blesses:         editFields.blesses,
+      degatsMateriels: editFields.degatsMateriels,
+      temoins:         editFields.temoins,
+    };
+    save(updated);
+    setEditMode(false);
   };
 
   const FACTEURS = ['humain', 'materiel', 'environnement', 'organisationnel', 'technique'];
@@ -1130,60 +1158,184 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
 
           {activeTab === 'declaration' && (
             <div className="space-y-4">
-              <div className="px-4 py-3 rounded-xl space-y-2" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
-                {[
-                  { label: 'Lieu', value: inc.lieu },
-                  { label: 'Déclaré par', value: inc.declarePar },
-                  { label: 'Date déclaration', value: inc.dateDeclaration },
-                  { label: 'Véhicule', value: vehicle ? `${vehicle.immatriculation} — ${vehicle.marque}` : '—' },
-                  { label: 'Conducteur', value: driver ? `${driver.prenom} ${driver.nom}` : '—' },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex items-start justify-between gap-4">
-                    <span className="text-xs flex-shrink-0" style={{ color: c.textMuted }}>{label}</span>
-                    <span className="text-xs font-medium text-right" style={{ color: c.textSecondary }}>{value}</span>
-                  </div>
-                ))}
+              {/* Toolbar lecture/édition */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold" style={{ color: c.textMuted }}>
+                  {editMode ? '✏️ MODE ÉDITION' : 'FICHE DE DÉCLARATION'}
+                </span>
+                {!editMode
+                  ? <button onClick={() => setEditMode(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                      <Pencil size={11} /> Modifier
+                    </button>
+                  : <div className="flex items-center gap-2">
+                      <button onClick={() => setEditMode(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs"
+                        style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>
+                        Annuler
+                      </button>
+                      <button onClick={saveEditFields}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: 'linear-gradient(135deg,#ff8844,#cc4400)', color: '#fff' }}>
+                        ✓ Sauvegarder
+                      </button>
+                    </div>
+                }
               </div>
-              <div>
-                <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>DESCRIPTION DES FAITS</div>
-                <div className="px-3 py-3 rounded-lg text-sm leading-relaxed"
-                  style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>
-                  {inc.description}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>BLESSÉS</div>
-                  <div className="px-3 py-2.5 rounded-lg text-xs"
-                    style={{ background: inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.06)' : c.bgElevated, border: `1px solid ${inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.2)' : c.border}`, color: inc.blesses !== 'Aucun' ? '#ff9999' : '#00e676' }}>
-                    {inc.blesses}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>DÉGÂTS MATÉRIELS</div>
-                  <div className="px-3 py-2.5 rounded-lg text-xs"
-                    style={{ background: inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.06)' : c.bgElevated, border: `1px solid ${inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.2)' : c.border}`, color: inc.degatsMateriels !== 'Aucun' ? '#ffb300' : '#00e676' }}>
-                    {inc.degatsMateriels}
-                  </div>
-                </div>
-              </div>
-              {inc.temoins && (
-                <div>
-                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>TÉMOINS</div>
-                  <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>{inc.temoins}</div>
-                </div>
-              )}
-              {inc.photos.length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>PHOTOS ({inc.photos.length})</div>
-                  <div className="space-y-1">
-                    {inc.photos.map((p, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                        style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
-                        <Camera size={11} style={{ color: c.accent }} />
-                        <span style={{ color: c.textSecondary }}>{p}</span>
+
+              {!editMode ? (
+                <>
+                  <div className="px-4 py-3 rounded-xl space-y-2" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                    {[
+                      { label: 'Lieu', value: inc.lieu },
+                      { label: 'Déclaré par', value: inc.declarePar },
+                      { label: 'Date / Heure', value: `${inc.date} à ${inc.heure}` },
+                      { label: 'Véhicule', value: vehicle ? `${vehicle.immatriculation} — ${vehicle.marque}` : '—' },
+                      { label: 'Conducteur', value: driver ? `${driver.prenom} ${driver.nom}` : '—' },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex items-start justify-between gap-4">
+                        <span className="text-xs flex-shrink-0" style={{ color: c.textMuted }}>{label}</span>
+                        <span className="text-xs font-medium text-right" style={{ color: c.textSecondary }}>{value}</span>
                       </div>
                     ))}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>DESCRIPTION DES FAITS</div>
+                    <div className="px-3 py-3 rounded-lg text-sm leading-relaxed"
+                      style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>
+                      {inc.description}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>BLESSÉS</div>
+                      <div className="px-3 py-2.5 rounded-lg text-xs"
+                        style={{ background: inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.06)' : c.bgElevated, border: `1px solid ${inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.2)' : c.border}`, color: inc.blesses !== 'Aucun' ? '#ff9999' : '#00e676' }}>
+                        {inc.blesses}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>DÉGÂTS MATÉRIELS</div>
+                      <div className="px-3 py-2.5 rounded-lg text-xs"
+                        style={{ background: inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.06)' : c.bgElevated, border: `1px solid ${inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.2)' : c.border}`, color: inc.degatsMateriels !== 'Aucun' ? '#ffb300' : '#00e676' }}>
+                        {inc.degatsMateriels}
+                      </div>
+                    </div>
+                  </div>
+                  {inc.temoins && (
+                    <div>
+                      <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>TÉMOINS</div>
+                      <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>{inc.temoins}</div>
+                    </div>
+                  )}
+                  {inc.photos.length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>PHOTOS ({inc.photos.length})</div>
+                      <div className="space-y-1">
+                        {inc.photos.map((p, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                            style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                            <Camera size={11} style={{ color: c.accent }} />
+                            <span style={{ color: c.textSecondary }}>{p}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ── Mode édition ── */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>TYPE</label>
+                      <select value={editFields.type} onChange={e => setEditFields(p => ({ ...p, type: e.target.value as IncidentType }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                        {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>GRAVITÉ</label>
+                      <select value={editFields.gravite} onChange={e => setEditFields(p => ({ ...p, gravite: e.target.value as IncidentGravite }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: graviteColor(editFields.gravite) }}>
+                        {(Object.entries(INCIDENT_GRAVITE_LABELS) as [IncidentGravite, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>DATE</label>
+                      <input type="date" value={editFields.date} onChange={e => setEditFields(p => ({ ...p, date: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>HEURE</label>
+                      <input type="time" value={editFields.heure} onChange={e => setEditFields(p => ({ ...p, heure: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>LIEU</label>
+                    <input value={editFields.lieu} onChange={e => setEditFields(p => ({ ...p, lieu: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>VÉHICULE</label>
+                      <select value={editFields.vehiculeId} onChange={e => setEditFields(p => ({ ...p, vehiculeId: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                        <option value="">Aucun</option>
+                        {vehicles.map(v => <option key={v.id} value={v.id}>{v.immatriculation}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>CONDUCTEUR</label>
+                      <select value={editFields.chauffeurId} onChange={e => setEditFields(p => ({ ...p, chauffeurId: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                        <option value="">Aucun</option>
+                        {drivers.map(d => <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>DÉCLARÉ PAR</label>
+                    <input value={editFields.declarePar} onChange={e => setEditFields(p => ({ ...p, declarePar: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>DESCRIPTION</label>
+                    <textarea value={editFields.description} onChange={e => setEditFields(p => ({ ...p, description: e.target.value }))}
+                      rows={3} className="w-full px-3 py-2 rounded-lg text-xs resize-none"
+                      style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>BLESSÉS</label>
+                      <input value={editFields.blesses} onChange={e => setEditFields(p => ({ ...p, blesses: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>DÉGÂTS MAT.</label>
+                      <input value={editFields.degatsMateriels} onChange={e => setEditFields(p => ({ ...p, degatsMateriels: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: c.textMuted }}>TÉMOINS</label>
+                    <input value={editFields.temoins} onChange={e => setEditFields(p => ({ ...p, temoins: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
                   </div>
                 </div>
               )}
@@ -1284,11 +1436,18 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
                           <div className="text-xs mt-1" style={{ color: c.textMuted }}>{a.responsable} · Échéance {a.echeance}</div>
                           {a.commentaire && <div className="text-xs mt-0.5 italic" style={{ color: c.textFaint }}>{a.commentaire}</div>}
                         </div>
-                        <button onClick={() => toggleActionStatut(a.id)}
-                          className="text-xs px-2 py-1 rounded-lg flex-shrink-0 font-bold"
-                          style={{ background: `${aColor}12`, color: aColor, border: `1px solid ${aColor}30` }}>
-                          {a.statut === 'cloturee' ? '✓' : a.statut === 'en_cours' ? '⟳' : '○'}
-                        </button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => toggleActionStatut(a.id)}
+                            className="text-xs px-2 py-1 rounded-lg font-bold"
+                            style={{ background: `${aColor}12`, color: aColor, border: `1px solid ${aColor}30` }}>
+                            {a.statut === 'cloturee' ? '✓' : a.statut === 'en_cours' ? '⟳' : '○'}
+                          </button>
+                          <button onClick={() => setDeleteActionId(a.id)}
+                            className="p-1 rounded-lg"
+                            style={{ color: '#ff4444' }}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1330,6 +1489,23 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
               </div>
             </div>
           )}
+        {/* Dialog suppression action */}
+        {deleteActionId && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="rounded-2xl p-5 mx-4 max-w-xs w-full"
+              style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+              <h3 className="font-bold mb-1.5" style={{ color: c.textPrimary }}>Supprimer l'action ?</h3>
+              <p className="text-xs mb-4" style={{ color: c.textSecondary }}>Cette opération est irréversible.</p>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setDeleteActionId(null)} className="px-3 py-1.5 rounded-lg text-xs"
+                  style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+                <button onClick={() => removeAction(deleteActionId)} className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>Supprimer</button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
@@ -1338,10 +1514,11 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
 
 // ─── Accidents Tab ────────────────────────────────────────────────────────────
 
-function AccidentsTab({ incidents, onDeclare, onSelect, vehicles, drivers }: {
+function AccidentsTab({ incidents, onDeclare, onSelect, onDelete, vehicles, drivers }: {
   incidents: Incident[];
   onDeclare: () => void;
   onSelect: (inc: Incident) => void;
+  onDelete: (id: string) => void;
   vehicles: Vehicle[]; drivers: Driver[];
 }) {
   const { c } = useTheme();
@@ -1455,7 +1632,20 @@ function AccidentsTab({ incidents, onDeclare, onSelect, vehicles, drivers }: {
                       </span>
                     )}
                   </div>
-                  <Eye size={13} style={{ color: c.textMuted, flexShrink: 0 }} />
+                  <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => onSelect(inc)}
+                      className="p-1.5 rounded-lg transition-all"
+                      style={{ background: c.accentBg, border: `1px solid ${c.accentBorder}` }}
+                      title="Voir / modifier">
+                      <Pencil size={12} style={{ color: c.accent }} />
+                    </button>
+                    <button onClick={() => onDelete(inc.id)}
+                      className="p-1.5 rounded-lg transition-all"
+                      style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.3)' }}
+                      title="Supprimer">
+                      <Trash2 size={12} style={{ color: '#ff4444' }} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1550,6 +1740,8 @@ export default function Securite() {
       .catch(() => setIncidentsLoaded(true)); // garde les données mock en fallback
   }, [tab, incidentsLoaded]);
 
+  const [deleteIncidentId, setDeleteIncidentId] = useState<string | null>(null);
+
   const handleIncidentSubmit = async (inc: Incident) => {
     setIncidents(prev => [inc, ...prev]);
     setShowDeclareForm(false);
@@ -1560,6 +1752,15 @@ export default function Securite() {
     setIncidents(prev => prev.map(x => x.id === inc.id ? inc : x));
     setSelectedIncident(inc);
     try { await incidentService.update(inc.id, inc); } catch { /* garde l'état local */ }
+  };
+
+  const handleDeleteIncident = async () => {
+    if (!deleteIncidentId) return;
+    const id = deleteIncidentId;
+    setDeleteIncidentId(null);
+    setSelectedIncident(prev => prev?.id === id ? null : prev);
+    setIncidents(prev => prev.filter(x => x.id !== id));
+    try { await incidentService.delete(id); } catch { /* garde l'état local */ }
   };
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
@@ -1998,6 +2199,7 @@ export default function Securite() {
             incidents={incidents}
             onDeclare={() => setShowDeclareForm(true)}
             onSelect={inc => setSelectedIncident(inc)}
+            onDelete={id => setDeleteIncidentId(id)}
             vehicles={safeVehicles}
             drivers={safeDrivers}
           />
@@ -2019,6 +2221,27 @@ export default function Securite() {
           onSaved={handleDriverSaved}
           onClose={() => { setShowDriverModal(false); setEditDriver(null); }}
         />
+      )}
+      {deleteIncidentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-6 mx-4 max-w-sm w-full"
+            style={{ background: c.bgCard, border: `1px solid ${c.borderStrong}` }}>
+            <h3 className="font-bold mb-2" style={{ color: c.textPrimary }}>Supprimer l'événement ?</h3>
+            <p className="text-sm mb-1" style={{ color: c.textSecondary }}>
+              {(() => { const i = incidents.find(x => x.id === deleteIncidentId); return i ? `${i.reference} — ${INCIDENT_TYPE_LABELS[i.type]}` : ''; })()}
+            </p>
+            <p className="text-xs mb-4" style={{ color: c.textMuted }}>Toutes les actions associées seront également supprimées.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteIncidentId(null)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
+              <button onClick={handleDeleteIncident} className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'rgba(255,68,68,0.12)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.3)' }}>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showDeclareForm && (
         <IncidentDeclarationModal
