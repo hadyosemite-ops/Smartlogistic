@@ -4,6 +4,7 @@ import {
   ClipboardCheck, Plus, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle,
   BarChart3, Calendar, Filter, ShieldAlert, Leaf, ScanLine, Trash2, Pencil,
+  Camera, Search,
 } from 'lucide-react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -26,6 +27,7 @@ import {
 import { checklistService } from '../services/checklistService';
 import { driverService } from '../services/driverService';
 import { alertService } from '../services/alertService';
+import { incidentService } from '../services/incidentService';
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
 
@@ -664,9 +666,809 @@ function DriverEditModal({ driver, onSaved, onClose }: {
   );
 }
 
+// ─── Incident Types & Helpers ─────────────────────────────────────────────────
+
+type IncidentType    = 'accident_vehicule' | 'accident_travail' | 'accident_trajet' | 'incident' | 'presquaccident' | 'materiel';
+type IncidentGravite = 'mortelle' | 'grave' | 'moderee' | 'legere' | 'sans_arret' | 'materiel_seul';
+type IncidentStatut  = 'declare' | 'en_analyse' | 'plan_action' | 'cloture';
+
+interface IncidentAction {
+  id: string;
+  description: string;
+  type: 'corrective' | 'preventive';
+  responsable: string;
+  echeance: string;
+  statut: 'ouverte' | 'en_cours' | 'cloturee';
+  commentaire?: string;
+}
+
+interface Incident {
+  id: string; reference: string;
+  type: IncidentType; gravite: IncidentGravite; statut: IncidentStatut;
+  date: string; heure: string; lieu: string;
+  vehiculeId?: string; chauffeurId?: string;
+  description: string; temoins: string; blesses: string; degatsMateriels: string;
+  photos: string[];
+  causesImmédiates: string; causesProfondees: string; facteurs: string[];
+  actions: IncidentAction[];
+  declarePar: string; dateDeclaration: string;
+}
+
+const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
+  accident_vehicule: 'Accident Véhicule', accident_travail: 'Accident du Travail',
+  accident_trajet: 'Accident de Trajet', incident: 'Incident',
+  presquaccident: 'Presque-Accident', materiel: 'Dégât Matériel',
+};
+const INCIDENT_GRAVITE_LABELS: Record<IncidentGravite, string> = {
+  mortelle: 'Mortelle', grave: 'Grave', moderee: 'Modérée',
+  legere: 'Légère', sans_arret: 'Sans arrêt', materiel_seul: 'Matériel seulement',
+};
+const INCIDENT_STATUT_LABELS: Record<IncidentStatut, string> = {
+  declare: 'Déclaré', en_analyse: 'En analyse', plan_action: 'Plan d\'action', cloture: 'Clôturé',
+};
+
+const graviteColor = (g: IncidentGravite) =>
+  g === 'mortelle' ? '#ff0000' : g === 'grave' ? '#ff4444' : g === 'moderee' ? '#ff8844' :
+  g === 'legere' ? '#ffb300' : g === 'sans_arret' ? '#00d4ff' : '#7bacc8';
+
+const statutIncidentColor = (s: IncidentStatut) =>
+  s === 'declare' ? '#ff8844' : s === 'en_analyse' ? '#ffb300' : s === 'plan_action' ? '#00d4ff' : '#00e676';
+
+const INITIAL_INCIDENTS: Incident[] = [
+  {
+    id: 'inc001', reference: 'INC-2026-001', type: 'accident_vehicule', gravite: 'moderee',
+    statut: 'plan_action', date: '2026-06-10', heure: '14:30', lieu: 'RN6 — KM 42, Casablanca',
+    vehiculeId: 'v1', chauffeurId: 'd2',
+    description: 'Collision légère avec un véhicule léger lors d\'un dépassement sur voie rapide. Le VL a freiné brusquement, distance de sécurité insuffisante.',
+    temoins: 'Mohammed ALAMI (C-0031)', blesses: 'Aucun blessé', degatsMateriels: 'Aile avant gauche + pare-choc endommagés',
+    photos: ['IMG_collision_avant.jpg', 'IMG_degat_parechoc.jpg'],
+    causesImmédiates: 'Freinage brusque du VL devant, distance de sécurité insuffisante',
+    causesProfondees: '1. Pourquoi la distance était insuffisante ? → Trafic dense\n2. Pourquoi pas d\'adaptation ? → Sensibilisation insuffisante conduite préventive\n3. Pourquoi insuffisante ? → Absence de module dédié dans le plan de formation\n4. Pourquoi pas de module ? → Plan de formation non révisé depuis 2023\n5. Pourquoi ? → Procédure de révision annuelle non appliquée',
+    facteurs: ['humain', 'organisationnel'],
+    actions: [
+      { id: 'a1', description: 'Formation conduite préventive pour tous les conducteurs (8h)', type: 'preventive', responsable: 'Resp. RH', echeance: '2026-07-30', statut: 'en_cours' },
+      { id: 'a2', description: 'Mise à jour plan de formation annuel + module conduite', type: 'corrective', responsable: 'Resp. HSE', echeance: '2026-07-15', statut: 'ouverte' },
+      { id: 'a3', description: 'Rappel sécurité routière en réunion mensuelle', type: 'preventive', responsable: 'Chef de Parc', echeance: '2026-07-05', statut: 'cloturee', commentaire: 'Réunion tenue le 03/07' },
+    ],
+    declarePar: 'Chef de Parc', dateDeclaration: '2026-06-10',
+  },
+  {
+    id: 'inc002', reference: 'INC-2026-002', type: 'presquaccident', gravite: 'sans_arret',
+    statut: 'en_analyse', date: '2026-06-18', heure: '09:15', lieu: 'Dépôt — Zone de chargement B',
+    vehiculeId: undefined, chauffeurId: 'd1',
+    description: 'Presque chute lors de la descente de cabine — marche antidérapante défaillante et glissante après les intempéries.',
+    temoins: 'Chef de quai Ahmed OUALI', blesses: 'Aucun', degatsMateriels: 'Aucun',
+    photos: ['marche_defaillante.jpg'],
+    causesImmédiates: 'Marche antidérapante usée, surface glissante après pluie',
+    causesProfondees: '', facteurs: ['materiel', 'environnement'],
+    actions: [], declarePar: 'Karim BENALI', dateDeclaration: '2026-06-18',
+  },
+  {
+    id: 'inc003', reference: 'INC-2026-003', type: 'accident_travail', gravite: 'legere',
+    statut: 'cloture', date: '2026-05-22', heure: '11:00', lieu: 'Entrepôt — Zone de stockage C',
+    vehiculeId: undefined, chauffeurId: undefined,
+    description: 'Coupure légère à la main lors de la manipulation de cerclages métalliques sans port des gants de protection requis.',
+    temoins: 'Chef d\'équipe logistique', blesses: 'Opérateur : coupure superficielle main droite, soins infirmerie', degatsMateriels: 'Aucun',
+    photos: [],
+    causesImmédiates: 'Absence d\'EPI (gants anti-coupure) — stock vide non réapprovisionné',
+    causesProfondees: '1. Absence de gants → Stock EPI vide\n2. Stock vide → Commande non passée\n3. Commande non passée → Procédure suivi stock défaillante\n4. Procédure défaillante → Aucun responsable désigné\n5. Absence responsable → Organisation HSE incomplète',
+    facteurs: ['humain', 'organisationnel', 'materiel'],
+    actions: [
+      { id: 'a4', description: 'Réapprovisionnement stock EPI — gants anti-coupure niveau B', type: 'corrective', responsable: 'Resp. Achats', echeance: '2026-06-01', statut: 'cloturee', commentaire: 'Stock réapprovisionné le 28/05' },
+      { id: 'a5', description: 'Désignation d\'un responsable suivi stock EPI', type: 'corrective', responsable: 'Resp. HSE', echeance: '2026-06-15', statut: 'cloturee', commentaire: 'M. RACHIDI désigné le 12/06' },
+      { id: 'a6', description: 'Affichage rappel port obligatoire EPI aux postes de travail', type: 'preventive', responsable: 'Chef d\'équipe', echeance: '2026-06-30', statut: 'cloturee', commentaire: 'Affiches installées' },
+    ],
+    declarePar: 'Responsable HSE', dateDeclaration: '2026-05-22',
+  },
+];
+
+// ─── Incident Declaration Modal ──────────────────────────────────────────────
+
+function IncidentDeclarationModal({ onClose, onSubmit, vehicles, drivers }: {
+  onClose: () => void;
+  onSubmit: (inc: Incident) => void;
+  vehicles: Vehicle[]; drivers: Driver[];
+}) {
+  const { c } = useTheme();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [type, setType]       = useState<IncidentType>('incident');
+  const [gravite, setGravite] = useState<IncidentGravite>('legere');
+  const [date, setDate]       = useState(new Date().toISOString().slice(0, 10));
+  const [heure, setHeure]     = useState(new Date().toTimeString().slice(0, 5));
+  const [lieu, setLieu]       = useState('');
+  const [vehiculeId, setVehiculeId] = useState('');
+  const [chauffeurId, setChauffeurId] = useState('');
+  const [declarePar, setDeclarePar]  = useState('');
+  const [description, setDescription] = useState('');
+  const [blesses, setBlesses]         = useState('Aucun');
+  const [degatsMateriels, setDegatsMateriels] = useState('Aucun');
+  const [temoins, setTemoins] = useState('');
+  const [photos, setPhotos]   = useState<string[]>([]);
+
+  const step1OK = lieu.trim().length > 0 && declarePar.trim().length > 0;
+  const step2OK = description.trim().length > 10;
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    setPhotos(prev => [...prev, ...files.map(f => f.name)]);
+  };
+
+  const handleSubmit = () => {
+    const seq = String(Math.floor(Math.random() * 900) + 100);
+    const year = new Date().getFullYear();
+    const inc: Incident = {
+      id: `inc_${Date.now()}`, reference: `INC-${year}-${seq}`,
+      type, gravite, statut: 'declare', date, heure, lieu,
+      vehiculeId: vehiculeId || undefined, chauffeurId: chauffeurId || undefined,
+      description, blesses, degatsMateriels, temoins, photos,
+      causesImmédiates: '', causesProfondees: '', facteurs: [],
+      actions: [], declarePar, dateDeclaration: date,
+    };
+    onSubmit(inc);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}>
+      <div className="glass-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col m-4"
+        style={{ border: `1px solid ${c.borderStrong}`, borderRadius: 16 }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${c.border}` }}>
+          <div>
+            <div className="font-semibold" style={{ color: c.textPrimary }}>Déclarer un Accident / Incident</div>
+            <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>Déclaration immédiate — Réf. For-HSE-ACC-01</div>
+          </div>
+          <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+        </div>
+
+        {/* Steps indicator */}
+        <div className="flex items-center gap-0 px-6 pt-4 pb-2">
+          {([{ n: 1, label: 'Identification' }, { n: 2, label: 'Circonstances' }, { n: 3, label: 'Photos & Récap' }] as const).map(({ n, label }, i) => (
+            <div key={n} className="flex items-center">
+              <div className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold"
+                style={{ background: step >= n ? '#ff8844' : c.border, color: step >= n ? '#020817' : c.textMuted }}>{n}</div>
+              <div className="text-xs ml-1.5 mr-4" style={{ color: step === n ? c.textPrimary : c.textMuted }}>{label}</div>
+              {i < 2 && <div className="w-8 h-px mr-4" style={{ background: c.border }} />}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>TYPE D'ÉVÉNEMENT</label>
+                  <select value={type} onChange={e => setType(e.target.value as IncidentType)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                    {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>GRAVITÉ</label>
+                  <select value={gravite} onChange={e => setGravite(e.target.value as IncidentGravite)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: graviteColor(gravite) }}>
+                    {(Object.entries(INCIDENT_GRAVITE_LABELS) as [IncidentGravite, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>DATE</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>HEURE</label>
+                  <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>LIEU DE L'ÉVÉNEMENT *</label>
+                <input value={lieu} onChange={e => setLieu(e.target.value)}
+                  placeholder="Ex : RN1 — KM 56, Dépôt zone B, Site client..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>VÉHICULE IMPLIQUÉ</label>
+                  <select value={vehiculeId} onChange={e => setVehiculeId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                    <option value="">Aucun / N/A</option>
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.immatriculation} — {v.marque}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>CONDUCTEUR / PERSONNE</label>
+                  <select value={chauffeurId} onChange={e => setChauffeurId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm"
+                    style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }}>
+                    <option value="">Non applicable</option>
+                    {drivers.map(d => <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>DÉCLARÉ PAR *</label>
+                <input value={declarePar} onChange={e => setDeclarePar(e.target.value)}
+                  placeholder="Nom et fonction du déclarant..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              {(gravite === 'mortelle' || gravite === 'grave') && (
+                <div className="px-3 py-3 rounded-lg" style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.3)' }}>
+                  <div className="font-semibold text-sm" style={{ color: '#ff4444' }}>🚨 Événement grave — Procédure d'urgence</div>
+                  <div className="text-xs mt-1" style={{ color: c.textSecondary }}>
+                    Alerter immédiatement la Direction et le Responsable HSE. Déclaration CNSS obligatoire sous 48h.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>DESCRIPTION DES FAITS * (min. 10 caractères)</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)}
+                  rows={4} placeholder="Décrire précisément les circonstances, le déroulement, les conditions..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm resize-none"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+                <div className="text-xs mt-1 text-right" style={{ color: description.length < 10 ? '#ff4444' : c.textFaint }}>
+                  {description.length} caractères
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>BLESSÉS / VICTIMES</label>
+                <input value={blesses} onChange={e => setBlesses(e.target.value)}
+                  placeholder="Ex : Aucun / Conducteur: contusion épaule gauche..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>DÉGÂTS MATÉRIELS</label>
+                <input value={degatsMateriels} onChange={e => setDegatsMateriels(e.target.value)}
+                  placeholder="Ex : Aucun / Pare-choc avant + aile gauche..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>TÉMOINS</label>
+                <input value={temoins} onChange={e => setTemoins(e.target.value)}
+                  placeholder="Nom et contact des témoins éventuels..."
+                  className="w-full px-3 py-2.5 rounded-lg text-sm"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>PHOTOS / PIÈCES JOINTES</label>
+                <label className="flex flex-col items-center justify-center gap-2 px-4 py-6 rounded-xl cursor-pointer transition-all"
+                  style={{ background: c.bgElevated, border: `2px dashed ${c.borderStrong}` }}>
+                  <Camera size={24} style={{ color: c.textFaint }} />
+                  <span className="text-sm" style={{ color: c.textSecondary }}>Cliquer pour ajouter des photos</span>
+                  <span className="text-xs" style={{ color: c.textMuted }}>JPG, PNG, PDF — max 10 Mo chacun</span>
+                  <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handlePhotoChange} />
+                </label>
+                {photos.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {photos.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                        <Camera size={11} style={{ color: c.accent, flexShrink: 0 }} />
+                        <span style={{ color: c.textSecondary, flex: 1 }}>{p}</span>
+                        <button onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))} style={{ color: '#ff4444' }}><X size={11} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${c.borderStrong}` }}>
+                <div className="px-4 py-2.5 text-xs font-semibold" style={{ background: c.bgElevated, color: c.textMuted, borderBottom: `1px solid ${c.border}` }}>
+                  RÉCAPITULATIF
+                </div>
+                <div className="p-4 space-y-2">
+                  {[
+                    { label: 'Type', value: INCIDENT_TYPE_LABELS[type] },
+                    { label: 'Gravité', value: INCIDENT_GRAVITE_LABELS[gravite], color: graviteColor(gravite) },
+                    { label: 'Date / Heure', value: `${date} à ${heure}` },
+                    { label: 'Lieu', value: lieu },
+                    { label: 'Déclaré par', value: declarePar },
+                    { label: 'Blessés', value: blesses },
+                    { label: 'Photos', value: `${photos.length} fichier(s)` },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-start justify-between gap-4">
+                      <span className="text-xs flex-shrink-0" style={{ color: c.textMuted }}>{label}</span>
+                      <span className="text-xs font-medium text-right" style={{ color: color || c.textSecondary }}>{value || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: `1px solid ${c.border}` }}>
+          {step > 1
+            ? <button onClick={() => setStep((step - 1) as 1 | 2 | 3)} className="px-4 py-2 rounded-lg text-sm"
+                style={{ background: c.bgElevated, color: c.textSecondary }}>← Retour</button>
+            : <div />}
+          {step < 3 && (
+            <button onClick={() => setStep((step + 1) as 1 | 2 | 3)}
+              disabled={step === 1 ? !step1OK : !step2OK}
+              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={{ background: (step === 1 ? step1OK : step2OK) ? 'linear-gradient(135deg,#ff8844,#cc4400)' : c.bgElevated, color: (step === 1 ? step1OK : step2OK) ? '#fff' : c.textMuted }}>
+              Suivant →
+            </button>
+          )}
+          {step === 3 && (
+            <button onClick={handleSubmit}
+              className="px-5 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: 'linear-gradient(135deg,#ff8844,#cc4400)', color: '#fff' }}>
+              ✓ Enregistrer la déclaration
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Incident Detail Modal ────────────────────────────────────────────────────
+
+function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, drivers }: {
+  incident: Incident; onClose: () => void;
+  onUpdate: (inc: Incident) => void;
+  vehicles: Vehicle[]; drivers: Driver[];
+}) {
+  const { c } = useTheme();
+  const [inc, setInc] = useState<Incident>(initInc);
+  const [activeTab, setActiveTab] = useState<'declaration' | 'analyse' | 'actions'>('declaration');
+  const [newAction, setNewAction] = useState({ description: '', type: 'corrective' as 'corrective' | 'preventive', responsable: '', echeance: '' });
+
+  const gColor = graviteColor(inc.gravite);
+  const sColor = statutIncidentColor(inc.statut);
+
+  const save = (updated: Incident) => { setInc(updated); onUpdate(updated); };
+
+  const advanceStatut = () => {
+    const flow: IncidentStatut[] = ['declare', 'en_analyse', 'plan_action', 'cloture'];
+    const idx = flow.indexOf(inc.statut);
+    if (idx < flow.length - 1) save({ ...inc, statut: flow[idx + 1] });
+  };
+
+  const addAction = () => {
+    if (!newAction.description || !newAction.responsable || !newAction.echeance) return;
+    const action: IncidentAction = { id: `a_${Date.now()}`, ...newAction, statut: 'ouverte' };
+    save({ ...inc, actions: [...inc.actions, action] });
+    setNewAction({ description: '', type: 'corrective', responsable: '', echeance: '' });
+  };
+
+  const toggleActionStatut = (id: string) => {
+    const flow: IncidentAction['statut'][] = ['ouverte', 'en_cours', 'cloturee'];
+    save({ ...inc, actions: inc.actions.map(a => a.id !== id ? a : { ...a, statut: flow[(flow.indexOf(a.statut) + 1) % flow.length] }) });
+  };
+
+  const FACTEURS = ['humain', 'materiel', 'environnement', 'organisationnel', 'technique'];
+  const vehicle = vehicles.find(v => v.id === inc.vehiculeId);
+  const driver  = drivers.find(d => d.id === inc.chauffeurId);
+  const openActions = inc.actions.filter(a => a.statut !== 'cloturee').length;
+  const progress = inc.actions.length > 0
+    ? Math.round((inc.actions.filter(a => a.statut === 'cloturee').length / inc.actions.length) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-end"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}>
+      <div className="glass-card w-full max-w-lg h-full overflow-hidden flex flex-col"
+        style={{ border: `1px solid ${c.borderStrong}`, borderRadius: '16px 0 0 16px' }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="px-5 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${c.border}` }}>
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ background: `${gColor}15`, color: gColor, border: `1px solid ${gColor}40` }}>
+                  {INCIDENT_TYPE_LABELS[inc.type]}
+                </span>
+                <span className="text-xs font-mono" style={{ color: c.textMuted }}>{inc.reference}</span>
+              </div>
+              <div className="text-sm font-semibold mt-1.5" style={{ color: c.textPrimary }}>
+                {inc.date} à {inc.heure} — {inc.lieu}
+              </div>
+            </div>
+            <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: `${gColor}12`, color: gColor, border: `1px solid ${gColor}30` }}>
+              ⚡ {INCIDENT_GRAVITE_LABELS[inc.gravite]}
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: `${sColor}12`, color: sColor, border: `1px solid ${sColor}30` }}>
+              {INCIDENT_STATUT_LABELS[inc.statut]}
+            </span>
+            {inc.statut !== 'cloture' && (
+              <button onClick={advanceStatut}
+                className="ml-auto text-xs px-2.5 py-1 rounded-lg font-semibold"
+                style={{ background: c.accentBg, color: c.accent, border: `1px solid ${c.accentBorder}` }}>
+                → Avancer statut
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex px-5 pt-3 pb-0 gap-1 flex-shrink-0">
+          {([
+            { key: 'declaration', label: '📋 Déclaration' },
+            { key: 'analyse',     label: '🔍 Analyse' },
+            { key: 'actions',     label: `📌 Plan d'action${inc.actions.length ? ` (${inc.actions.length})` : ''}` },
+          ] as const).map(({ key, label }) => (
+            <button key={key} onClick={() => setActiveTab(key)}
+              className="px-3 py-2 rounded-t-lg text-xs font-medium transition-all"
+              style={{ background: activeTab === key ? c.accentBg : 'transparent', color: activeTab === key ? c.accent : c.textMuted, borderBottom: activeTab === key ? `2px solid ${c.accent}` : '2px solid transparent' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ height: 1, background: c.border, margin: '0 20px' }} />
+
+        <div className="flex-1 overflow-y-auto p-5">
+
+          {activeTab === 'declaration' && (
+            <div className="space-y-4">
+              <div className="px-4 py-3 rounded-xl space-y-2" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                {[
+                  { label: 'Lieu', value: inc.lieu },
+                  { label: 'Déclaré par', value: inc.declarePar },
+                  { label: 'Date déclaration', value: inc.dateDeclaration },
+                  { label: 'Véhicule', value: vehicle ? `${vehicle.immatriculation} — ${vehicle.marque}` : '—' },
+                  { label: 'Conducteur', value: driver ? `${driver.prenom} ${driver.nom}` : '—' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-start justify-between gap-4">
+                    <span className="text-xs flex-shrink-0" style={{ color: c.textMuted }}>{label}</span>
+                    <span className="text-xs font-medium text-right" style={{ color: c.textSecondary }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>DESCRIPTION DES FAITS</div>
+                <div className="px-3 py-3 rounded-lg text-sm leading-relaxed"
+                  style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>
+                  {inc.description}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>BLESSÉS</div>
+                  <div className="px-3 py-2.5 rounded-lg text-xs"
+                    style={{ background: inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.06)' : c.bgElevated, border: `1px solid ${inc.blesses !== 'Aucun' ? 'rgba(255,68,68,0.2)' : c.border}`, color: inc.blesses !== 'Aucun' ? '#ff9999' : '#00e676' }}>
+                    {inc.blesses}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>DÉGÂTS MATÉRIELS</div>
+                  <div className="px-3 py-2.5 rounded-lg text-xs"
+                    style={{ background: inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.06)' : c.bgElevated, border: `1px solid ${inc.degatsMateriels !== 'Aucun' ? 'rgba(255,179,0,0.2)' : c.border}`, color: inc.degatsMateriels !== 'Aucun' ? '#ffb300' : '#00e676' }}>
+                    {inc.degatsMateriels}
+                  </div>
+                </div>
+              </div>
+              {inc.temoins && (
+                <div>
+                  <div className="text-xs font-semibold mb-1.5" style={{ color: c.textMuted }}>TÉMOINS</div>
+                  <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textSecondary }}>{inc.temoins}</div>
+                </div>
+              )}
+              {inc.photos.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold mb-2" style={{ color: c.textMuted }}>PHOTOS ({inc.photos.length})</div>
+                  <div className="space-y-1">
+                    {inc.photos.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                        style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                        <Camera size={11} style={{ color: c.accent }} />
+                        <span style={{ color: c.textSecondary }}>{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'analyse' && (
+            <div className="space-y-4">
+              <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.2)' }}>
+                <span style={{ color: c.accent }}>💡 Méthode :</span>
+                <span style={{ color: c.textSecondary }}> Causes immédiates (Quoi?) → 5 Pourquoi (Pourquoi?) → Facteurs contributifs</span>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>CAUSES IMMÉDIATES</label>
+                <textarea value={inc.causesImmédiates} onChange={e => save({ ...inc, causesImmédiates: e.target.value })}
+                  rows={2} placeholder="Qu'est-ce qui a directement causé l'événement ? (acte ou condition)"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm resize-none"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>ANALYSE 5 POURQUOI</label>
+                <textarea value={inc.causesProfondees} onChange={e => save({ ...inc, causesProfondees: e.target.value })}
+                  rows={6}
+                  placeholder={'1. Pourquoi … ? → …\n2. Pourquoi … ? → …\n3. Pourquoi … ? → …\n4. Pourquoi … ? → …\n5. Pourquoi … ? → … (cause racine)'}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm resize-none font-mono"
+                  style={{ background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary }} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-2 block" style={{ color: c.textMuted }}>FACTEURS CONTRIBUTIFS</label>
+                <div className="flex flex-wrap gap-2">
+                  {FACTEURS.map(f => {
+                    const active = inc.facteurs.includes(f);
+                    return (
+                      <button key={f}
+                        onClick={() => save({ ...inc, facteurs: active ? inc.facteurs.filter(x => x !== f) : [...inc.facteurs, f] })}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all"
+                        style={{ background: active ? 'rgba(255,136,68,0.15)' : c.bgElevated, color: active ? '#ff8844' : c.textMuted, border: `1px solid ${active ? 'rgba(255,136,68,0.4)' : c.border}` }}>
+                        {f}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-2 block" style={{ color: c.textMuted }}>NIVEAU DE RISQUE</label>
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                  style={{ background: `${gColor}08`, border: `1px solid ${gColor}25` }}>
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-lg flex-shrink-0"
+                    style={{ background: `${gColor}20`, color: gColor }}>
+                    {inc.gravite === 'mortelle' ? 'E' : inc.gravite === 'grave' ? 'D' : inc.gravite === 'moderee' ? 'C' : inc.gravite === 'legere' ? 'B' : 'A'}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: gColor }}>{INCIDENT_GRAVITE_LABELS[inc.gravite]}</div>
+                    <div className="text-xs mt-0.5" style={{ color: c.textMuted }}>
+                      {inc.gravite === 'mortelle' ? 'Risque extrême — arrêt immédiat + signalement autorités' :
+                       inc.gravite === 'grave' ? 'Risque élevé — action corrective immédiate obligatoire' :
+                       inc.gravite === 'moderee' ? 'Risque modéré — plan d\'action sous 48h' :
+                       inc.gravite === 'legere' ? 'Risque faible — traitement sous 7 jours' : 'Risque négligeable'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'actions' && (
+            <div className="space-y-4">
+              {inc.actions.length > 0 && (
+                <div className="px-4 py-3 rounded-xl" style={{ background: c.bgElevated, border: `1px solid ${c.border}` }}>
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span style={{ color: c.textSecondary }}>Progression du plan d'action</span>
+                    <span className="font-bold" style={{ color: progress >= 100 ? '#00e676' : '#00d4ff' }}>{progress}%</span>
+                  </div>
+                  <div className="h-2 rounded-full" style={{ background: c.border }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: progress >= 100 ? '#00e676' : '#00d4ff' }} />
+                  </div>
+                  <div className="text-xs mt-1.5" style={{ color: c.textMuted }}>
+                    {inc.actions.filter(a => a.statut === 'cloturee').length}/{inc.actions.length} actions clôturées
+                    {openActions > 0 && <span style={{ color: '#ffb300' }}> · {openActions} en attente</span>}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {inc.actions.map(a => {
+                  const aColor = a.statut === 'cloturee' ? '#00e676' : a.statut === 'en_cours' ? '#ffb300' : '#4a7a9b';
+                  return (
+                    <div key={a.id} className="px-3 py-3 rounded-xl"
+                      style={{ background: c.bgElevated, border: `1px solid ${a.statut === 'cloturee' ? 'rgba(0,230,118,0.2)' : c.border}` }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-xs px-1.5 py-0.5 rounded capitalize"
+                              style={{ background: a.type === 'corrective' ? 'rgba(255,68,68,0.12)' : 'rgba(0,212,255,0.1)', color: a.type === 'corrective' ? '#ff8888' : '#00d4ff' }}>
+                              {a.type}
+                            </span>
+                          </div>
+                          <div className="text-xs font-medium" style={{ color: c.textPrimary }}>{a.description}</div>
+                          <div className="text-xs mt-1" style={{ color: c.textMuted }}>{a.responsable} · Échéance {a.echeance}</div>
+                          {a.commentaire && <div className="text-xs mt-0.5 italic" style={{ color: c.textFaint }}>{a.commentaire}</div>}
+                        </div>
+                        <button onClick={() => toggleActionStatut(a.id)}
+                          className="text-xs px-2 py-1 rounded-lg flex-shrink-0 font-bold"
+                          style={{ background: `${aColor}12`, color: aColor, border: `1px solid ${aColor}30` }}>
+                          {a.statut === 'cloturee' ? '✓' : a.statut === 'en_cours' ? '⟳' : '○'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${c.borderStrong}` }}>
+                <div className="px-4 py-2.5 text-xs font-semibold" style={{ background: c.bgElevated, color: c.textMuted, borderBottom: `1px solid ${c.border}` }}>
+                  + NOUVELLE ACTION
+                </div>
+                <div className="p-4 space-y-3">
+                  <textarea value={newAction.description} onChange={e => setNewAction(p => ({ ...p, description: e.target.value }))}
+                    rows={2} placeholder="Description de l'action à mener..."
+                    className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                    style={{ background: c.bgInput, border: `1px solid ${c.border}`, color: c.textPrimary }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={newAction.type} onChange={e => setNewAction(p => ({ ...p, type: e.target.value as 'corrective' | 'preventive' }))}
+                      className="px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.border}`, color: c.textPrimary }}>
+                      <option value="corrective">Corrective</option>
+                      <option value="preventive">Préventive</option>
+                    </select>
+                    <input type="date" value={newAction.echeance} onChange={e => setNewAction(p => ({ ...p, echeance: e.target.value }))}
+                      className="px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.border}`, color: c.textPrimary }} />
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={newAction.responsable} onChange={e => setNewAction(p => ({ ...p, responsable: e.target.value }))}
+                      placeholder="Responsable..."
+                      className="flex-1 px-3 py-2 rounded-lg text-xs"
+                      style={{ background: c.bgInput, border: `1px solid ${c.border}`, color: c.textPrimary }} />
+                    <button onClick={addAction}
+                      disabled={!newAction.description || !newAction.responsable || !newAction.echeance}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
+                      style={{ background: newAction.description && newAction.responsable && newAction.echeance ? 'linear-gradient(135deg,#ff8844,#cc4400)' : c.bgElevated, color: newAction.description && newAction.responsable && newAction.echeance ? '#fff' : c.textMuted }}>
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Accidents Tab ────────────────────────────────────────────────────────────
+
+function AccidentsTab({ incidents, onDeclare, onSelect, vehicles, drivers }: {
+  incidents: Incident[];
+  onDeclare: () => void;
+  onSelect: (inc: Incident) => void;
+  vehicles: Vehicle[]; drivers: Driver[];
+}) {
+  const { c } = useTheme();
+  const [statutFilter, setStatutFilter] = useState<IncidentStatut | 'all'>('all');
+
+  const filtered = incidents.filter(inc => statutFilter === 'all' || inc.statut === statutFilter);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonthCount = incidents.filter(i => i.date.startsWith(thisMonth)).length;
+  const enAttente = incidents.filter(i => i.statut === 'declare' || i.statut === 'en_analyse').length;
+  const openActions = incidents.reduce((s, i) => s + i.actions.filter(a => a.statut !== 'cloturee').length, 0);
+  const graves = incidents.filter(i => i.gravite === 'mortelle' || i.gravite === 'grave').length;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard label="Total déclarés" value={incidents.length}
+          icon={AlertTriangle} iconColor="#ff8844" iconBg="rgba(255,136,68,0.12)"
+          trendLabel="Accidents & incidents" />
+        <KPICard label="Ce mois-ci" value={thisMonthCount}
+          icon={Calendar} iconColor="#ffb300" iconBg={c.warningBg}
+          trendLabel="Nouvelles déclarations" />
+        <KPICard label="En attente analyse" value={enAttente}
+          icon={Search} iconColor="#00d4ff" iconBg={c.accentBg}
+          glowClass={enAttente > 0 ? 'glow-warning' : ''}
+          trendLabel="Déclarés + En analyse" />
+        <KPICard label="Actions ouvertes" value={openActions}
+          icon={ClipboardCheck} iconColor={openActions > 0 ? '#ff4444' : '#00e676'} iconBg={openActions > 0 ? c.dangerBg : c.successBg}
+          glowClass={openActions > 2 ? 'glow-danger' : ''}
+          trendLabel="Plans d'action en cours" />
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 flex-wrap">
+          {(['all', 'declare', 'en_analyse', 'plan_action', 'cloture'] as const).map(f => (
+            <button key={f} onClick={() => setStatutFilter(f)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{ background: statutFilter === f ? 'rgba(255,136,68,0.15)' : c.bgElevated, color: statutFilter === f ? '#ff8844' : c.textMuted, border: `1px solid ${statutFilter === f ? 'rgba(255,136,68,0.4)' : c.border}` }}>
+              {f === 'all' ? `Tous (${incidents.length})` : `${INCIDENT_STATUT_LABELS[f]} (${incidents.filter(i => i.statut === f).length})`}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          {graves > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.3)', color: '#ff4444' }}>
+              🚨 {graves} événement{graves > 1 ? 's' : ''} grave{graves > 1 ? 's' : ''}
+            </div>
+          )}
+          <button onClick={onDeclare}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm"
+            style={{ background: 'linear-gradient(135deg,#ff8844,#cc4400)', color: '#fff', boxShadow: '0 4px 20px rgba(255,136,68,0.3)' }}>
+            <Plus size={15} />
+            Déclarer un accident / incident
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${c.border}` }}>
+          <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>Registre des accidents & incidents</span>
+          <span className="text-xs" style={{ color: c.textMuted }}>{filtered.length} enregistrement{filtered.length > 1 ? 's' : ''}</span>
+        </div>
+        {filtered.length === 0 ? (
+          <div className="px-5 py-12 text-center">
+            <AlertTriangle size={32} style={{ color: c.textFaint, margin: '0 auto 12px' }} />
+            <div className="text-sm" style={{ color: c.textMuted }}>Aucun événement enregistré</div>
+            <div className="text-xs mt-1" style={{ color: c.textFaint }}>Cliquez sur "Déclarer" pour enregistrer un premier événement</div>
+          </div>
+        ) : (
+          <div className="divide-y" style={{ borderColor: `${c.border}26` }}>
+            {filtered.map(inc => {
+              const iGColor = graviteColor(inc.gravite);
+              const iSColor = statutIncidentColor(inc.statut);
+              const v = vehicles.find(x => x.id === inc.vehiculeId);
+              const d = drivers.find(x => x.id === inc.chauffeurId);
+              const openAct = inc.actions.filter(a => a.statut !== 'cloturee').length;
+              return (
+                <div key={inc.id} className="flex items-center gap-4 px-5 py-3.5 cursor-pointer table-row-hover" onClick={() => onSelect(inc)}>
+                  <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ background: iGColor }} />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm flex-shrink-0"
+                    style={{ background: `${iGColor}12`, border: `1.5px solid ${iGColor}30` }}>
+                    {inc.type === 'accident_vehicule' ? '🚛' : inc.type === 'accident_travail' ? '👷' : inc.type === 'presquaccident' ? '⚠️' : inc.type === 'materiel' ? '🔧' : '📋'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold" style={{ color: c.textPrimary }}>{INCIDENT_TYPE_LABELS[inc.type]}</span>
+                      <span className="text-xs font-mono" style={{ color: c.textFaint }}>{inc.reference}</span>
+                    </div>
+                    <div className="text-xs mt-0.5 truncate" style={{ color: c.textMuted }}>
+                      {inc.date} à {inc.heure} · {inc.lieu}
+                      {d && <> · <span style={{ color: c.textSecondary }}>{d.prenom} {d.nom}</span></>}
+                      {v && !d && <> · <span style={{ color: c.textSecondary }}>{v.immatriculation}</span></>}
+                    </div>
+                    <div className="text-xs mt-0.5 truncate italic" style={{ color: c.textFaint }}>
+                      {inc.description.slice(0, 80)}{inc.description.length > 80 ? '…' : ''}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: `${iGColor}12`, color: iGColor, border: `1px solid ${iGColor}30` }}>
+                      {INCIDENT_GRAVITE_LABELS[inc.gravite]}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: `${iSColor}12`, color: iSColor, border: `1px solid ${iSColor}30` }}>
+                      {INCIDENT_STATUT_LABELS[inc.statut]}
+                    </span>
+                    {openAct > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(255,179,0,0.12)', color: '#ffb300' }}>
+                        {openAct} action{openAct > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <Eye size={13} style={{ color: c.textMuted, flexShrink: 0 }} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type Tab = 'scoring' | 'checklist' | 'qse';
+type Tab = 'scoring' | 'checklist' | 'qse' | 'accidents';
 
 export default function Securite() {
   const { c } = useTheme();
@@ -733,6 +1535,32 @@ export default function Securite() {
   // Delete state
   const [deleteInspId,   setDeleteInspId]   = useState<string | null>(null);
   const [deleteActionId, setDeleteActionId] = useState<string | null>(null);
+
+  // Accidents/Incidents state
+  const [incidents, setIncidents]               = useState<Incident[]>(INITIAL_INCIDENTS);
+  const [incidentsLoaded, setIncidentsLoaded]   = useState(false);
+  const [showDeclareForm, setShowDeclareForm]   = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+
+  // Charge depuis Supabase quand l'onglet accidents est ouvert
+  useEffect(() => {
+    if (tab !== 'accidents' || incidentsLoaded) return;
+    incidentService.getAll()
+      .then(data => { if (data.length > 0) setIncidents(data); setIncidentsLoaded(true); })
+      .catch(() => setIncidentsLoaded(true)); // garde les données mock en fallback
+  }, [tab, incidentsLoaded]);
+
+  const handleIncidentSubmit = async (inc: Incident) => {
+    setIncidents(prev => [inc, ...prev]);
+    setShowDeclareForm(false);
+    try { await incidentService.create(inc); } catch { /* garde l'état local */ }
+  };
+
+  const handleIncidentUpdate = async (inc: Incident) => {
+    setIncidents(prev => prev.map(x => x.id === inc.id ? inc : x));
+    setSelectedIncident(inc);
+    try { await incidentService.update(inc.id, inc); } catch { /* garde l'état local */ }
+  };
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
     setAllInspections(prev => [insp, ...prev]);
@@ -802,6 +1630,7 @@ export default function Securite() {
           { key: 'qse',       label: 'Tableau de bord HSE',          icon: Leaf },
           { key: 'checklist', label: 'Check-list & Plan d\'actions', icon: ClipboardCheck },
           { key: 'scoring',   label: 'Scoring & Alertes',            icon: ShieldCheck },
+          { key: 'accidents', label: 'Accidents & Incidents',          icon: AlertTriangle },
         ] as { key: Tab; label: string; icon: React.FC<{ size?: number; style?: React.CSSProperties }> }[]).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-t-lg text-sm font-medium transition-all"
@@ -1163,6 +1992,17 @@ export default function Securite() {
         {/* ── Tab QSE ──────────────────────────────────────────────────── */}
         {tab === 'qse' && <QSETab tooltipStyle={tooltipStyle} />}
 
+        {/* ── Tab Accidents & Incidents ─────────────────────────────── */}
+        {tab === 'accidents' && (
+          <AccidentsTab
+            incidents={incidents}
+            onDeclare={() => setShowDeclareForm(true)}
+            onSelect={inc => setSelectedIncident(inc)}
+            vehicles={safeVehicles}
+            drivers={safeDrivers}
+          />
+        )}
+
       </div>
 
       </DataState>
@@ -1178,6 +2018,23 @@ export default function Securite() {
           driver={editDriver}
           onSaved={handleDriverSaved}
           onClose={() => { setShowDriverModal(false); setEditDriver(null); }}
+        />
+      )}
+      {showDeclareForm && (
+        <IncidentDeclarationModal
+          onClose={() => setShowDeclareForm(false)}
+          onSubmit={handleIncidentSubmit}
+          vehicles={safeVehicles}
+          drivers={safeDrivers}
+        />
+      )}
+      {selectedIncident && (
+        <IncidentDetailModal
+          incident={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
+          onUpdate={handleIncidentUpdate}
+          vehicles={safeVehicles}
+          drivers={safeDrivers}
         />
       )}
       {showForm && (
