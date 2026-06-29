@@ -1514,12 +1514,14 @@ function IncidentDetailModal({ incident: initInc, onClose, onUpdate, vehicles, d
 
 // ─── Accidents Tab ────────────────────────────────────────────────────────────
 
-function AccidentsTab({ incidents, onDeclare, onSelect, onDelete, vehicles, drivers }: {
+function AccidentsTab({ incidents, onDeclare, onSelect, onDelete, vehicles, drivers, loading, demoMode }: {
   incidents: Incident[];
   onDeclare: () => void;
   onSelect: (inc: Incident) => void;
   onDelete: (id: string) => void;
   vehicles: Vehicle[]; drivers: Driver[];
+  loading?: boolean;
+  demoMode?: boolean;
 }) {
   const { c } = useTheme();
   const [statutFilter, setStatutFilter] = useState<IncidentStatut | 'all'>('all');
@@ -1531,8 +1533,27 @@ function AccidentsTab({ incidents, onDeclare, onSelect, onDelete, vehicles, driv
   const openActions = incidents.reduce((s, i) => s + i.actions.filter(a => a.statut !== 'cloturee').length, 0);
   const graves = incidents.filter(i => i.gravite === 'mortelle' || i.gravite === 'grave').length;
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-24" style={{ color: 'var(--text-secondary)' }}>
+      <svg className="animate-spin h-6 w-6 mr-3" viewBox="0 0 24 24" fill="none">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+      Chargement des incidents…
+    </div>
+  );
+
   return (
     <div className="space-y-5">
+      {demoMode && (
+        <div style={{ background: 'rgba(255,183,77,0.12)', border: '1px solid rgba(255,183,77,0.35)', borderRadius: 10, padding: '10px 16px', color: '#ffb74d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AlertTriangle size={15} />
+          <span>
+            <strong>Mode démo</strong> — Tables Supabase non trouvées. Les données ci-dessous sont fictives et non persistées.
+            Exécutez <code style={{ background: 'rgba(255,183,77,0.2)', borderRadius: 4, padding: '1px 6px' }}>supabase/migrations/20260629_incidents.sql</code> dans votre dashboard Supabase pour activer la persistance.
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard label="Total déclarés" value={incidents.length}
           icon={AlertTriangle} iconColor="#ff8844" iconBg="rgba(255,136,68,0.12)"
@@ -1727,17 +1748,31 @@ export default function Securite() {
   const [deleteActionId, setDeleteActionId] = useState<string | null>(null);
 
   // Accidents/Incidents state
-  const [incidents, setIncidents]               = useState<Incident[]>(INITIAL_INCIDENTS);
+  const [incidents, setIncidents]               = useState<Incident[]>([]);
   const [incidentsLoaded, setIncidentsLoaded]   = useState(false);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+  const [incidentsDemoMode, setIncidentsDemoMode] = useState(false);
   const [showDeclareForm, setShowDeclareForm]   = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   // Charge depuis Supabase quand l'onglet accidents est ouvert
   useEffect(() => {
     if (tab !== 'accidents' || incidentsLoaded) return;
+    setIncidentsLoading(true);
     incidentService.getAll()
-      .then(data => { if (data.length > 0) setIncidents(data); setIncidentsLoaded(true); })
-      .catch(() => setIncidentsLoaded(true)); // garde les données mock en fallback
+      .then(data => {
+        setIncidents(data);           // toujours écraser (même si vide)
+        setIncidentsDemoMode(false);
+        setIncidentsLoaded(true);
+        setIncidentsLoading(false);
+      })
+      .catch(() => {
+        // Tables Supabase non créées → données démo en fallback
+        setIncidents(INITIAL_INCIDENTS);
+        setIncidentsDemoMode(true);
+        setIncidentsLoaded(true);
+        setIncidentsLoading(false);
+      });
   }, [tab, incidentsLoaded]);
 
   const [deleteIncidentId, setDeleteIncidentId] = useState<string | null>(null);
@@ -1759,8 +1794,15 @@ export default function Securite() {
     const id = deleteIncidentId;
     setDeleteIncidentId(null);
     setSelectedIncident(prev => prev?.id === id ? null : prev);
+    const snapshot = incidents.find(x => x.id === id);
     setIncidents(prev => prev.filter(x => x.id !== id));
-    try { await incidentService.delete(id); } catch { /* garde l'état local */ }
+    try {
+      await incidentService.delete(id);
+    } catch (err) {
+      console.error('Erreur suppression incident', err);
+      // Rollback optimiste si Supabase échoue
+      if (snapshot) setIncidents(prev => [snapshot, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+    }
   };
 
   const handleInspSubmit = (insp: Inspection, actions: ActionCorrectrice[]) => {
@@ -2202,6 +2244,8 @@ export default function Securite() {
             onDelete={id => setDeleteIncidentId(id)}
             vehicles={safeVehicles}
             drivers={safeDrivers}
+            loading={incidentsLoading}
+            demoMode={incidentsDemoMode}
           />
         )}
 
