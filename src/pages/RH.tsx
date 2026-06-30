@@ -88,12 +88,13 @@ function DriverModal({ initial, onClose, onSaved }: {
     scoreGlobal:  initial?.scoreGlobal  ?? 80,
   });
 
+  const [error, setError] = useState<string | null>(null);
   const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
   const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       let driver: Driver;
       if (initial) {
@@ -103,6 +104,8 @@ function DriverModal({ initial, onClose, onSaved }: {
         driver = await driverService.create(form);
       }
       onSaved(driver);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -159,6 +162,7 @@ function DriverModal({ initial, onClose, onSaved }: {
                 onChange={e => setForm(f => ({ ...f, visiteExpire: e.target.value }))} />
             </RhField>
           </div>
+          {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
               style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
@@ -193,12 +197,13 @@ function CongeModal({ initial, drivers, onClose, onSaved }: {
     motif:       initial?.motif       ?? '',
   });
 
+  const [error, setError] = useState<string | null>(null);
   const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
   const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       let cg: Conge;
       if (initial) {
@@ -208,6 +213,8 @@ function CongeModal({ initial, drivers, onClose, onSaved }: {
         cg = await rhService.createConge(form);
       }
       onSaved(cg);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -270,6 +277,7 @@ function CongeModal({ initial, drivers, onClose, onSaved }: {
             <input className={inp} style={inpStyle} value={form.motif ?? ''}
               onChange={e => setForm(f => ({ ...f, motif: e.target.value }))} />
           </RhField>
+          {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
               style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
@@ -304,12 +312,13 @@ function FormationModal({ initial, drivers, onClose, onSaved }: {
     expiration:  initial?.expiration  ?? '',
   });
 
+  const [error, setError] = useState<string | null>(null);
   const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
   const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       let fm: Formation;
       if (initial) {
@@ -319,6 +328,8 @@ function FormationModal({ initial, drivers, onClose, onSaved }: {
         fm = await rhService.createFormation(form);
       }
       onSaved(fm);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -375,6 +386,7 @@ function FormationModal({ initial, drivers, onClose, onSaved }: {
                 onChange={e => setForm(f => ({ ...f, expiration: e.target.value }))} />
             </RhField>
           </div>
+          {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
               style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>
@@ -404,15 +416,18 @@ function PaieModal({ drivers, onClose, onSaved }: {
     salaireBase: 0, primeKm: 0, primeRendement: 0, heuresSupp: 0, retenues: 0, netAPayer: 0,
   });
 
+  const [error, setError] = useState<string | null>(null);
   const inp = `w-full px-3 py-2 rounded-lg text-sm outline-none`;
   const inpStyle = { background: c.bgElevated, border: `1px solid ${c.border}`, color: c.textPrimary };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       await rhService.createPaie(form);
       onSaved(form);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -464,6 +479,7 @@ function PaieModal({ drivers, onClose, onSaved }: {
                 onChange={e => setForm(f => ({ ...f, netAPayer: Number(e.target.value) }))} />
             </RhField>
           </div>
+          {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
               style={{ background: c.bgElevated, color: c.textMuted, border: `1px solid ${c.border}` }}>Annuler</button>

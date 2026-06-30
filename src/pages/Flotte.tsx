@@ -50,10 +50,11 @@ function VehicleFormModal({ vehicle, onSaved, onClose }: {
   const [carb,    setCarb]    = useState(String(vehicle?.carburant ?? 0));
   const [score,   setScore]   = useState(vehicle?.scoreEtat ?? 80);
   const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!immat || !marque) return;
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       if (isNew) {
         const created = await vehicleService.create({
@@ -72,6 +73,8 @@ function VehicleFormModal({ vehicle, onSaved, onClose }: {
           type, status, kmActuel: +km, prochaineVidange: +vidange,
           prochainCT: ct, carburant: +carb, scoreEtat: score });
       }
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -145,7 +148,8 @@ function VehicleFormModal({ vehicle, onSaved, onClose }: {
           )}
         </div>
 
-        <div className="flex justify-end gap-3 mt-6">
+        {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px', marginTop: 8 }}>{error}</p>}
+        <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
             style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>Annuler</button>
           <button onClick={handleSubmit} disabled={saving || !immat || !marque}
@@ -176,10 +180,11 @@ function DocFormModal({ vehicleId, vehicles, onSaved, onClose }: {
   const [ref,    setRef]    = useState('');
   const [mont,   setMont]   = useState('');
   const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!lib || !vId) return;
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       const statut: DocumentVehicule['statut'] = (() => {
         if (!expir) return 'valide';
@@ -193,6 +198,8 @@ function DocFormModal({ vehicleId, vehicles, onSaved, onClose }: {
       };
       const created = await adminService.createDocument(input);
       onSaved(created);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -247,7 +254,8 @@ function DocFormModal({ vehicleId, vehicles, onSaved, onClose }: {
             <input type="number" value={mont} onChange={e => setMont(e.target.value)} className={inp} style={is} />
           </F>
         </div>
-        <div className="flex justify-end gap-3 mt-6">
+        {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px', marginTop: 8 }}>{error}</p>}
+        <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
             style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>Annuler</button>
           <button onClick={handleSubmit} disabled={saving || !lib}

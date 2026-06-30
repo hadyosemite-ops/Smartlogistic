@@ -421,9 +421,10 @@ function VehicleEditModal({ vehicle, onSaved, onClose }: {
   const [ct,      setCt]      = useState(vehicle?.prochainCT ?? '');
   const [score,   setScore]   = useState(vehicle?.scoreEtat ?? 80);
   const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
       if (isNew) {
         const created = await vehicleService.create({
@@ -439,6 +440,8 @@ function VehicleEditModal({ vehicle, onSaved, onClose }: {
         onSaved({ ...vehicle, immatriculation: immat, marque, modele, annee: +annee, type,
           status, kmActuel: +km, prochaineVidange: +vidange, prochainCT: ct, scoreEtat: score });
       }
+    } catch (err: unknown) {
+      setError((err as Error).message ?? String(err));
     } finally { setSaving(false); }
   };
 
@@ -504,7 +507,8 @@ function VehicleEditModal({ vehicle, onSaved, onClose }: {
           </F>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
+        {error && <p style={{ color: '#ff4444', fontSize: 12, background: 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '6px 10px', marginTop: 8 }}>{error}</p>}
+        <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm"
             style={{ background: c.bgElevated, color: c.textSecondary, border: `1px solid ${c.border}` }}>Annuler</button>
           <button onClick={handleSubmit} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold"
