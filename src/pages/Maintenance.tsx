@@ -48,6 +48,18 @@ const PIE_COLORS = ['#00d4ff', '#ff4444', '#ffb300', '#00e676', '#7bacc8'];
 
 import type { Vehicle, MaintenanceAlert } from '../data/mock';
 
+// Hoisted outside the modal: defining this inline inside a component body
+// creates a brand-new component type on every render, which makes React
+// remount the wrapped <input>/<select> each keystroke and drop focus.
+function F({ label, muted, children }: { label: string; muted: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold mb-1.5 block" style={{ color: muted }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 interface VehicleDetailProps {
   vehiculeId: string;
   onClose: () => void;
@@ -445,12 +457,6 @@ function VehicleEditModal({ vehicle, onSaved, onClose }: {
     } finally { setSaving(false); }
   };
 
-  const F = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>{label}</label>
-      {children}
-    </div>
-  );
   const inp = "w-full px-3 py-2 rounded-lg text-sm";
   const inpStyle = { background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary };
 
@@ -470,38 +476,38 @@ function VehicleEditModal({ vehicle, onSaved, onClose }: {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <F label="IMMATRICULATION">
+          <F label="IMMATRICULATION" muted={c.textMuted}>
             <input value={immat} onChange={e => setImmat(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="STATUT">
+          <F label="STATUT" muted={c.textMuted}>
             <select value={status} onChange={e => setStatus(e.target.value as Vehicle['status'])} className={inp} style={inpStyle}>
               <option value="actif">Actif</option>
               <option value="maintenance">Maintenance</option>
               <option value="inactif">Inactif</option>
             </select>
           </F>
-          <F label="MARQUE">
+          <F label="MARQUE" muted={c.textMuted}>
             <input value={marque} onChange={e => setMarque(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="MODÈLE">
+          <F label="MODÈLE" muted={c.textMuted}>
             <input value={modele} onChange={e => setModele(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="ANNÉE">
+          <F label="ANNÉE" muted={c.textMuted}>
             <input type="number" value={annee} onChange={e => setAnnee(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="TYPE">
+          <F label="TYPE" muted={c.textMuted}>
             <input value={type} onChange={e => setType(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="KM ACTUEL">
+          <F label="KM ACTUEL" muted={c.textMuted}>
             <input type="number" value={km} onChange={e => setKm(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="PROCH. VIDANGE (km)">
+          <F label="PROCH. VIDANGE (km)" muted={c.textMuted}>
             <input type="number" value={vidange} onChange={e => setVidange(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label="PROCHAIN CT">
+          <F label="PROCHAIN CT" muted={c.textMuted}>
             <input type="date" value={ct} onChange={e => setCt(e.target.value)} className={inp} style={inpStyle} />
           </F>
-          <F label={`SCORE ÉTAT : ${score}/100`}>
+          <F label={`SCORE ÉTAT : ${score}/100`} muted={c.textMuted}>
             <input type="range" min={0} max={100} value={score}
               onChange={e => setScore(+e.target.value)} className="w-full mt-2 accent-cyan-400" />
           </F>

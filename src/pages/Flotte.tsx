@@ -31,6 +31,18 @@ const daysUntil = (dateStr: string) => {
 const statutDocColor = (s: string) =>
   s === 'valide' ? '#00e676' : s === 'expire_bientot' ? '#ffb300' : '#ff4444';
 
+// Hoisted outside the modals: defining this inline inside a component body
+// creates a brand-new component type on every render, which makes React
+// remount the wrapped <input>/<select> each keystroke and drop focus.
+function F({ label, muted, children }: { label: string; muted: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold mb-1.5 block" style={{ color: muted }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 // ─── VehicleFormModal ────────────────────────────────────────────────────────
 
 function VehicleFormModal({ vehicle, onSaved, onClose }: {
@@ -80,12 +92,6 @@ function VehicleFormModal({ vehicle, onSaved, onClose }: {
 
   const inp = 'w-full px-3 py-2 rounded-lg text-sm';
   const is  = { background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary };
-  const F   = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>{label}</label>
-      {children}
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center"
@@ -100,47 +106,47 @@ function VehicleFormModal({ vehicle, onSaved, onClose }: {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <F label="IMMATRICULATION *">
+          <F label="IMMATRICULATION *" muted={c.textMuted}>
             <input value={immat} onChange={e => setImmat(e.target.value)} placeholder="12345-A-7" className={inp} style={is} />
           </F>
-          <F label="STATUT">
+          <F label="STATUT" muted={c.textMuted}>
             <select value={status} onChange={e => setStatus(e.target.value as Vehicle['status'])} className={inp} style={is}>
               <option value="actif">Actif</option>
               <option value="maintenance">Maintenance</option>
               <option value="indisponible">Indisponible</option>
             </select>
           </F>
-          <F label="MARQUE *">
+          <F label="MARQUE *" muted={c.textMuted}>
             <input value={marque} onChange={e => setMarque(e.target.value)} placeholder="Mercedes" className={inp} style={is} />
           </F>
-          <F label="MODÈLE">
+          <F label="MODÈLE" muted={c.textMuted}>
             <input value={modele} onChange={e => setModele(e.target.value)} placeholder="Actros 1845" className={inp} style={is} />
           </F>
-          <F label="ANNÉE">
+          <F label="ANNÉE" muted={c.textMuted}>
             <input type="number" value={annee} onChange={e => setAnnee(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="TYPE">
+          <F label="TYPE" muted={c.textMuted}>
             <select value={type} onChange={e => setType(e.target.value)} className={inp} style={is}>
               {['Camion', 'Semi-remorque', 'Tracteur', 'Remorque', 'Fourgon', 'Benne', 'Citerne', 'Frigorifique'].map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </F>
-          <F label="KM ACTUEL">
+          <F label="KM ACTUEL" muted={c.textMuted}>
             <input type="number" value={km} onChange={e => setKm(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="PROCH. VIDANGE (km)">
+          <F label="PROCH. VIDANGE (km)" muted={c.textMuted}>
             <input type="number" value={vidange} onChange={e => setVidange(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="PROCHAIN CT">
+          <F label="PROCHAIN CT" muted={c.textMuted}>
             <input type="date" value={ct} onChange={e => setCt(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="CONSO. (L/100km)">
+          <F label="CONSO. (L/100km)" muted={c.textMuted}>
             <input type="number" step="0.1" value={carb} onChange={e => setCarb(e.target.value)} className={inp} style={is} />
           </F>
           {!isNew && (
             <div className="col-span-2">
-              <F label={`SCORE ÉTAT : ${score}/100`}>
+              <F label={`SCORE ÉTAT : ${score}/100`} muted={c.textMuted}>
                 <input type="range" min={0} max={100} value={score}
                   onChange={e => setScore(+e.target.value)} className="w-full mt-2 accent-cyan-400" />
               </F>
@@ -205,12 +211,6 @@ function DocFormModal({ vehicleId, vehicles, onSaved, onClose }: {
 
   const inp = 'w-full px-3 py-2 rounded-lg text-sm';
   const is  = { background: c.bgInput, border: `1px solid ${c.borderStrong}`, color: c.textPrimary };
-  const F   = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="text-xs font-semibold mb-1.5 block" style={{ color: c.textMuted }}>{label}</label>
-      {children}
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center"
@@ -222,35 +222,35 @@ function DocFormModal({ vehicleId, vehicles, onSaved, onClose }: {
           <button onClick={onClose} style={{ color: c.textMuted }}><X size={18} /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <F label="VÉHICULE *">
+          <F label="VÉHICULE *" muted={c.textMuted}>
             <select value={vId} onChange={e => setVId(e.target.value)} className={inp} style={is}>
               {vehicles.map(v => <option key={v.id} value={v.id}>{v.immatriculation} — {v.marque}</option>)}
             </select>
           </F>
-          <F label="TYPE *">
+          <F label="TYPE *" muted={c.textMuted}>
             <select value={type} onChange={e => setType(e.target.value as DocumentVehicule['type'])} className={inp} style={is}>
               {DOC_TYPES.map(t => <option key={t} value={t}>{DOC_LABELS[t]}</option>)}
             </select>
           </F>
           <div className="col-span-2">
-            <F label="LIBELLÉ *">
+            <F label="LIBELLÉ *" muted={c.textMuted}>
               <input value={lib} onChange={e => setLib(e.target.value)} placeholder="ex: Assurance tous risques 2025"
                 className={inp} style={is} />
             </F>
           </div>
-          <F label="ORGANISME">
+          <F label="ORGANISME" muted={c.textMuted}>
             <input value={org} onChange={e => setOrg(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="RÉFÉRENCE">
+          <F label="RÉFÉRENCE" muted={c.textMuted}>
             <input value={ref} onChange={e => setRef(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="DATE D'ÉMISSION">
+          <F label="DATE D'ÉMISSION" muted={c.textMuted}>
             <input type="date" value={emis} onChange={e => setEmis(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="DATE D'EXPIRATION">
+          <F label="DATE D'EXPIRATION" muted={c.textMuted}>
             <input type="date" value={expir} onChange={e => setExpir(e.target.value)} className={inp} style={is} />
           </F>
-          <F label="COÛT (MAD)">
+          <F label="COÛT (MAD)" muted={c.textMuted}>
             <input type="number" value={mont} onChange={e => setMont(e.target.value)} className={inp} style={is} />
           </F>
         </div>
