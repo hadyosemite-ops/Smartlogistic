@@ -288,10 +288,12 @@ function VehicleDetailPanel({ vehicle, drivers, interventions, mAlerts, document
   const availDrivers = drivers.filter(d => !d.vehiculeId || d.vehiculeId === vehicle.id);
 
   return (
-    <div className="fixed inset-0 z-40 flex" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex"
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+      onClick={onClose}>
       <div className="flex-1" />
       <div className="w-full max-w-md h-full overflow-y-auto shadow-2xl"
-        style={{ background: c.bgCard, borderLeft: `1px solid ${c.borderStrong}` }}
+        style={{ background: c.bgCard, backdropFilter: 'blur(16px)', borderLeft: `1px solid ${c.borderStrong}` }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
