@@ -122,3 +122,21 @@ body {
   background: #ffffff;
   color: #0a1628;
 }
+
+/* ─── Icône du calendrier sur <input type="date"> ───────────────────────────
+   L'icône native de Chrome/Edge est un glyphe noir : invisible sur nos fonds
+   sombres (bg-input très foncé). On l'inverse en mode sombre pour la rendre
+   blanche/claire, et on l'assombrit légèrement en mode clair pour qu'elle
+   reste discrète mais visible. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+}
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+}
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.65;
+}

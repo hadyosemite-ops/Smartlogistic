@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<title>FleetOS Design Kit — Aperçu</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  .kpi { flex: 1 1 200px; }
+  .icon-box { width: 40px; height: 40px; border-radius: 12px; display:flex; align-items:center; justify-content:center; margin-bottom: 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); margin: 32px 0 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { border-bottom: 1px solid var(--border-faint); }
+  td { padding: 12px 16px; font-size: 13px; color: var(--text-secondary); }
+  .top { display:flex; align-items:center; justify-content:space-between; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 520px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;font-size:20px;">FleetOS Design Kit</h1>
+        <p style="margin:4px 0 0;color:var(--text-muted);font-size:13px;">Aperçu des composants — bascule le thème pour vérifier les deux variantes</p>
+      </div>
+      <button class="btn btn-secondary" onclick="toggleTheme()">🌓 Changer de thème</button>
+    </div>
+
+    <h2>KPI Cards</h2>
+    <div class="row">
+      <div class="glass-card pad kpi">
+        <div class="icon-box" style="background:var(--accent-bg)">📦</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">128</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Total véhicules</div>
+      </div>
+      <div class="glass-card pad kpi glow-success">
+        <div class="icon-box" style="background:var(--success-bg)">✅</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">96%</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Taux de disponibilité</div>
+      </div>
+      <div class="glass-card pad kpi glow-danger">
+        <div class="icon-box" style="background:var(--danger-bg)">⚠️</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">3</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Alertes critiques</div>
+      </div>
+    </div>
+
+    <h2>Boutons</h2>
+    <div class="row">
+      <button class="btn btn-primary">Créer le véhicule</button>
+      <button class="btn btn-secondary">Annuler</button>
+      <button class="btn btn-danger">Supprimer</button>
+    </div>
+
+    <h2>Badges</h2>
+    <div class="row">
+      <span class="badge badge-success">Actif</span>
+      <span class="badge badge-warning">Maintenance</span>
+      <span class="badge badge-danger">Indisponible</span>
+      <span class="badge badge-accent">Nouveau</span>
+    </div>
+
+    <h2>Formulaire</h2>
+    <div class="glass-card pad" style="max-width:520px;">
+      <div class="grid2">
+        <div>
+          <label class="field-label">Immatriculation *</label>
+          <input class="input" placeholder="12345-A-7" />
+        </div>
+        <div>
+          <label class="field-label">Statut</label>
+          <select class="input">
+            <option>Actif</option>
+            <option>Maintenance</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <h2>Tableau</h2>
+    <div class="glass-card" style="overflow:hidden;">
+      <table>
+        <thead><tr>
+          <th class="th-kit">Véhicule</th><th class="th-kit">Statut</th><th class="th-kit">Km</th>
+        </tr></thead>
+        <tbody>
+          <tr class="table-row-hover"><td>12345-A-7</td><td><span class="badge badge-success">Actif</span></td><td>84 320 km</td></tr>
+          <tr class="table-row-hover"><td>98765-B-2</td><td><span class="badge badge-warning">Maintenance</span></td><td>142 010 km</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Modale</h2>
+    <button class="btn btn-primary" onclick="document.getElementById('m').style.display='flex'">Ouvrir une modale</button>
+    <div id="m" class="modal-backdrop" style="display:none;" onclick="this.style.display='none'">
+      <div class="modal-panel" style="width:360px;" onclick="event.stopPropagation()">
+        <h3 style="margin:0 0 12px;color:var(--text-primary);">Exemple de modale</h3>
+        <p style="color:var(--text-secondary);font-size:14px;">Fond flouté + carte centrée, cohérent avec le reste du kit.</p>
+        <button class="btn btn-secondary" style="margin-top:12px;" onclick="document.getElementById('m').style.display='none'">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+  </script>
+</body>
+</html>
